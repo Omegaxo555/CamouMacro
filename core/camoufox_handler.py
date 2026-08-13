@@ -1,0 +1,195 @@
+import sys 
+import logging
+import shutil
+import tarfile
+import tempfile
+from pathlib import Path
+from typing import Optional
+from camoufox.sync_api import Camoufox
+from playwright.async_api import error as PlaywrightError, Page, BrowserContext
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
+
+
+class CamoufoxHandler:
+    def __init__(
+        self,
+        tor_proxy: str = "socks5://127.0.0.1:9050",
+        profile_template: Optional[str] = None,
+        headless: bool = True,
+        timeout: int = 30
+        ):
+
+        self.tor_proxy = tor_proxy
+        self.profile_template = profile_template
+        self.headless = headless
+        self.timeout = timeout
+
+        self.browser_context: Optional[BrowserContext] = None
+        self.page: Optional[Page] = None
+        self.temp_dir: Optional[Path] = None
+        self._camoufox_cm = None
+    
+    def _prepare_profile(self) -> Optional[str]:
+        if not self.profile_template:
+            logging.info("No se proporcionó una plantilla de perfil. Se utilizará el perfil predeterminado de Camoufox.")
+            return None
+        
+        archive_path = Path(self.profile_template)
+        if not archive_path.is_file():
+            logging.error(f"el archivo de plantilla de perfil no existe: {self.profile_template}")
+            raise FileNotFoundError(f"el archivo de plantilla de perfil no existe: {self.profile_template}")
+
+        self.temp_dir = Path(tempfile.mkdtemp(prefix="camoufox_session_", dir="/tmp"))
+        logging.info(f"Extrayendo plantilla de perfil a: {self.temp_dir}")
+
+        logging.info(f"Extrayendo plantilla de perfil desde: {archive_path.name} en memoria")
+        with tarfile.open(archive_path, "r:gz") as tar:
+            tar.extractall(path=self.temp_dir)
+
+        return str(self.temp_dir)
+
+    def initialize(self) -> bool:
+        """
+        Inicializa la sesión de Camoufox con el perfil preparado en RAM
+        y la configuración de red Tor.
+        """
+        try:
+            # 1. Preparar el directorio de datos de usuario en /tmp si aplica
+            user_data_path = self._prepare_profile()
+
+            logging.info("Inicializando motor Camoufox sobre Tor...")
+            
+            # 2. Configurar el inicializador de Camoufox
+            camoufox_kwargs = {
+                "proxy": {"server": self.proxy_server},
+                "headless": self.headless,
+                "humanize": True,
+                "os": "lin"
+            }
+
+            if user_data_path:
+                camoufox_kwargs["user_data_dir"] = user_data_path
+
+            self._camoufox_instance = Camoufox(**camoufox_kwargs)
+            self.page = self._camoufox_instance.__enter__()
+            self.page.set_default_timeout(self.timeout)
+            
+            logging.info("CamoufoxDriver inicializado exitosamente.")
+            return True
+
+        except PlaywrightError as e:
+            logging.error(f"Error de Playwright durante la inicialización: {e}")
+            self.close()
+            return False
+        except Exception as e:
+            logging.error(f"Error inesperado al preparar el Driver: {e}")
+            self.close()
+            return False
+
+
+    def navigate(self, url: str, max_retries: int = 3) -> bool:
+        """Navega a la URL especificada con tolerancia a fallos de latencia."""
+        if not self.page:
+            logging.error("Página no inicializada. Llame a initialize() primero.")
+            return False
+
+        for attempt in range(1, max_retries + 1):
+            try:
+                logging.info(f"Navegando a {url} (Intento {attempt}/{max_retries})...")
+                response = self.page.goto(url, wait_until="domcontentloaded")
+                
+                if response and response.ok:
+                    logging.info(f"Página cargada con éxito: {url} [{response.status}]")
+                    return True
+                
+                status = response.status if response else "Sin Respuesta"
+                logging.warning(f"Estado de respuesta no óptimo: {status}")
+
+            except PlaywrightError as e:
+                logging.warning(f"Error temporal de red en el intento {attempt}: {e}")
+            
+        logging.error(f"Imposible conectar a {url} tras {max_retries} intentos.")
+        return False
+
+    def close(self) -> None:
+        """
+        Cierra el navegador y garantiza la eliminación total del perfil
+        temporal almacenado en /tmp.
+        """
+        logging.info("Iniciando proceso de cierre y limpieza...")
+        
+        # 1. Cerrar la instancia del navegador
+        if self._camoufox_instance:
+            try:
+                self._camoufox_instance.__exit__(None, None, None)
+                self._camoufox_instance = None
+                logging.info("Instancia del navegador cerrada.")
+            except Exception as e:
+                logging.error(f"Error al cerrar la sesión de Camoufox: {e}")
+
+        # 2. Borrar permanentemente el directorio temporal en RAM
+        if self.temp_dir and self.temp_dir.exists():
+            try:
+                shutil.rmtree(self.temp_dir)
+                logging.info(f"Limpieza completada. Perfil efímero borrado de {self.temp_dir}")
+                self.temp_dir = None
+            except Exception as e:
+                logging.error(f"Error al eliminar el directorio temporal {self.temp_dir}: {e}")
+    
+    def verify_ip(self) -> None:
+        if not self.page:
+            logging.error("Page is not initialized. Call start() before verifying IP.")
+            return
+
+        try:
+            logging.info("Verificando dirección IP...")
+            self.page.goto("https://check.torproject.org/", wait_until="domcontentloaded")
+            
+            # Verificación del mensaje oficial de Tor
+            is_tor = self.page.is_visible("text=Congratulations. This browser is configured to use Tor.")
+            if is_tor:
+                logging.info("[CONFIRMADO] La conexión está circulando a través de la red Tor.")
+            else:
+                logging.warning("[ALERTA] La página cargó pero no confirmó la red Tor.")
+        except Exception as e:
+            logging.error(f"No se pudo verificar la IP en Tor Project: {e}")
+
+    def stop(self) -> None:
+        """
+        Cierra de forma segura la sesión del navegador liberando recursos.
+        """
+        logging.info("Cerrando instancia de navegador y liberando recursos...")
+        if self._camoufox_cm:
+            try:
+                self._camoufox_cm.__exit__(None, None, None)
+                logging.info("Sesión cerrada correctamente.")
+            except Exception as e:
+                logging.error(f"Error al cerrar la sesión de Camoufox: {e}")
+
+
+# --- Ejemplo de Ejecución ---
+if __name__ == "__main__":
+    bot = CamoufoxBot(
+        tor_proxy="socks5://127.0.0.1:9050",
+        headless=False  # Cambiar a True cuando no requieras interfaz visual
+    )
+
+    try:
+        if bot.start():
+            # 1. Verificar que Tor esté funcionando
+            bot.verify_ip()
+
+            # 2. Navegar a una URL de prueba rápida
+            bot.navigate("https://httpbin.org/ip")
+            
+            # Pausa breve para observar la ejecución
+            if bot.page:
+                bot.page.wait_for_timeout(3000)
+
+    finally:
+        bot.stop()
