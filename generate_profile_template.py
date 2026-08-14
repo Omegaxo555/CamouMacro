@@ -14,7 +14,6 @@ ROOT = Path(__file__).resolve().parent
 TEMPLATE_DIR = ROOT / "templates" / "perfil_base"
 ARCHIVE_PATH = ROOT / "templates" / "perfil_base.tar.gz"
 
-
 def ensure_clean_dir(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
     for child in path.iterdir():
@@ -22,7 +21,6 @@ def ensure_clean_dir(path: Path) -> None:
             shutil.rmtree(child)
         else:
             child.unlink()
-
 
 def build_profile_template() -> Path:
     ensure_clean_dir(TEMPLATE_DIR)
@@ -62,7 +60,6 @@ def build_profile_template() -> Path:
 
     print(f"Plantilla generada: {ARCHIVE_PATH}")
     return ARCHIVE_PATH
-
 
 if __name__ == "__main__":
     build_profile_template()
