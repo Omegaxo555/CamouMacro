@@ -40,7 +40,7 @@ class AllfeelloveAuto:
         self.driver.page.wait_for_load_state("domcontentloaded", timeout=self.driver.timeout)
         print(f"[allfeellove_auto] Página cargada. URL actual: {self.driver.page.url}")
 
-
+        cookies_button = HtmlElement.xpath('/html/body/div[2]/div/div/div/div/div[2]/div[1]/button[1]')
         gender_button = HtmlElement.css("label.gender__item.male")
         lookingfor_button = HtmlElement.css('label.checkbox__item.woman.woman_female')
         name_input = HtmlElement.css('input.input.input_name.name-container__input')
@@ -49,9 +49,11 @@ class AllfeelloveAuto:
 
         for label, selector in {
             "genero": gender_button,
+            "busqueda": lookingfor_button,
             "nombre": name_input,
             "fecha": date_input,
             "terminos": terms_checkbox,
+            "cookies": cookies_button
         }.items():
             print(f"[allfeellove_auto] Verificando selector de {label}: {selector}")
             exists = self.automation.element_exists(selector)
@@ -59,6 +61,10 @@ class AllfeelloveAuto:
             if not exists:
                 print(f"[allfeellove_auto] No existe el elemento de {label}. Revisa el selector o la carga de la página.")
                 return
+
+        print(f"[allfeellove_auto] Intentando click en: {cookies_button}")
+        result = self.automation.safe_click(cookies_button)
+        print(f"[allfeellove_auto] Resultado click cookies: {result}")
 
         print(f"[allfeellove_auto] Intentando click en: {gender_button}")
         result = self.automation.safe_click(gender_button)
