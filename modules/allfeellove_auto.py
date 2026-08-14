@@ -117,7 +117,8 @@ class AllfeelloveAuto:
         result = self.automation.human_type(password_input, "self.profile_dict['password']")
         print(f"[allfeellove_auto] Verificando existencia de input de password: {result}")
 
-        result = self.automation.safe_click(signup_button,click_count=3)
+        self.automation.safe_click(HtmlElement.css('div.google-button-wrapper'))
+        result = self.automation.safe_click(signup_button)
         print(f"[allfeellove_auto] Verificando existencia de botón de signup: {result}")
 
         #--------Saltando a la reclamar los credits-------#
