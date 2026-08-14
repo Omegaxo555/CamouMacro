@@ -45,7 +45,7 @@ class AllfeelloveAuto:
         lookingfor_button = HtmlElement.css('label.checkbox__item.woman.woman_female')
         name_input = HtmlElement.css('input.input.input_name.name-container__input')
         date_input = HtmlElement.xpath('/html/body/div[1]/div/div/main/div[1]/div/div[2]/div/div/form/div[3]/div[2]/div[1]/input')
-        terms_checkbox = HtmlElement.css("input.terms__label")
+        terms_checkbox = HtmlElement.xpath("/html/body/div[1]/div/div/main/div[1]/div/div[2]/div/div/form/div[4]/div[1]/div[1]/label")
 
         for label, selector in {
             "genero": gender_button,
