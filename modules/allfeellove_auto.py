@@ -110,20 +110,37 @@ class AllfeelloveAuto:
 
         #--------Saltando a la reclamar los credits-------#
 
-        skip1_button = HtmlElement.xpath('//*[@id="b82053a5-7218-420e-a8d8-190bfa6e0620"]')
-        #//*[@id="b82053a5-7218-420e-a8d8-190bfa6e0620"]
-        #//*[@id="b82053a5-7218-420e-a8d8-190bfa6e0620"] #82053a5-7218-420e-a8d8-190bfa6e0620
-        #//*[@id="b82053a5-7218-420e-a8d8-190bfa6e0620"]
-        #//*[@id="b82053a5-7218-420e-a8d8-190bfa6e0620"]
-        #//*[@id="b82053a5-7218-420e-a8d8-190bfa6e0620"]
-        #//*[@id="b82053a5-7218-420e-a8d8-190bfa6e0620"]
-        #//*[@id="Close"]
+        nextLets_button = HtmlElement.css('button[data-test-id="cmp:ui-button click:next Let’s do it!"]')
+        nextStep_button = HtmlElement.css('button[data-test-id="cmp:ui-button click:skip skip"]')
+        nextStep2_button = HtmlElement.css('button[data-test-id="cmp:ui-button click:pref-gender female"]')
+        nextStep3_button = HtmlElement.css('button[data-test-id="cmp:ui-button click:skip skip"]')
+        nextStep4_button = HtmlElement.css('button[data-test-id="cmp:ui-button click:onSkip Skip"]')
+        nextStep5_button = HtmlElement.css('button[data-test-id="cmp:ui-button click:next Continue"]')
+        
 
-        self.automation.wait_for_visible(skip1_button, timeout=160000)
-
-        result = self.automation.safe_click(skip1_button)
+        self.automation.wait_for_visible(nextLets_button, timeout=160000)
+        result = self.automation.safe_click(nextLets_button)
         print(f"[allfeellove_auto] Verificando existencia de botón de skip1: {result}")
 
+        self.automation.wait_for_visible(nextStep_button, timeout=160000)
+        result = self.automation.safe_click(nextStep_button)
+        print(f"[allfeellove_auto] Verificando existencia de botón de skip1: {result}")
+        
+        self.automation.wait_for_visible(nextStep2_button, timeout=160000)
+        result = self.automation.safe_click(nextStep2_button)
+        print(f"[allfeellove_auto] Verificando existencia de botón de skip1: {result}")
+
+        self.automation.wait_for_visible(nextStep3_button, timeout=160000)
+        result = self.automation.safe_click(nextStep3_button)
+        print(f"[allfeellove_auto] Verificando existencia de botón de skip1: {result}")
+
+        self.automation.wait_for_visible(nextStep4_button, timeout=160000)
+        result = self.automation.safe_click(nextStep4_button)
+        print(f"[allfeellove_auto] Verificando existencia de botón de skip1: {result}")
+
+        self.automation.wait_for_visible(nextStep5_button, timeout=160000)
+        result = self.automation.safe_click(nextStep5_button)
+        print(f"[allfeellove_auto] Verificando existencia de botón de skip1: {result}")
 
 
 
