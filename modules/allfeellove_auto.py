@@ -105,6 +105,7 @@ class AllfeelloveAuto:
         print(f"[allfeellove_auto] Verificando existencia de input de password: {result}")
 
         result = self.automation.safe_click(signup_button)
+        result = self.automation.safe_click(signup_button)
         print(f"[allfeellove_auto] Verificando existencia de botón de signup: {result}")
 
 
