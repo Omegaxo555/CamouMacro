@@ -23,7 +23,8 @@ class CamoufoxHandler:
         tor_proxy: Optional[str] = None,
         profile_template: Optional[str] = None,
         headless: bool = True,
-        timeout: int = 30
+        timeout: int = 30,
+        window_size: Optional[tuple[int, int]] = (600, 900),
     ):
 
         resolved_proxy = proxy_server or tor_proxy or "socks5://127.0.0.1:9050"
@@ -32,6 +33,7 @@ class CamoufoxHandler:
         self.profile_template = profile_template
         self.headless = headless
         self.timeout = timeout
+        self.window_size = window_size or (600, 900)
 
         self.browser_context: Optional[BrowserContext] = None
         self.page: Optional[Page] = None
@@ -94,6 +96,7 @@ class CamoufoxHandler:
                 "humanize": True,
                 "os": "linux",
                 "geoip": tor_available,
+                "window": self.window_size,
             }
 
             if tor_available and self.proxy_server:
@@ -107,12 +110,13 @@ class CamoufoxHandler:
             context = self._camoufox_instance.__enter__()
             if hasattr(context, "new_page"):
                 self.browser_context = context
-                self.page = context.new_page()
+                self.page = context.new_page(viewport={"width": self.window_size[0], "height": self.window_size[1]})
             else:
                 self.page = context
             self.page.set_default_timeout(self.timeout)
 
             logging.info("CamoufoxDriver inicializado exitosamente.")
+            logging.info(f"Ventana de navegador configurada en {self.window_size[0]}x{self.window_size[1]} (formato tablet/vertical).")
             return True
 
         except PlaywrightError as e:
