@@ -9,7 +9,6 @@ from pathlib import Path
 import platform
 
 from camoufox.sync_api import Camoufox
-
 ROOT = Path(__file__).resolve().parent
 TEMPLATE_DIR = ROOT / "templates" / "perfil_base"
 ARCHIVE_PATH = ROOT / "templates" / "perfil_base.tar.gz"
