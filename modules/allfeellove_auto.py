@@ -170,7 +170,7 @@ class AllfeelloveAuto:
 
         accountSearch = HtmlElement.css('#AccountSearch')
         filtersButton = HtmlElement.css('[data-test-id="file:extend-search click:show-filter filters"]')
-        countrySelect = HtmlElement.css('div.multiselect')
+        countrySelect = HtmlElement.xpath("/html/body/div[1]/div/div/main/div[1]/div/div[2]/div/div/div[2]/div[1]/div[2]/div[1]/div[2]/div[1]/div[1]/div[1]/div[1]/div[1]/div[2]/div[1]/div[1]/div[1]")
         countrySearchInput = HtmlElement.css('input[placeholder*="Select country"], input[placeholder*="Select Country"], .multiselect__input')
         fromAge = HtmlElement.css('input[placeholder="From"]')
         toAge = HtmlElement.css('input[placeholder="To"]')

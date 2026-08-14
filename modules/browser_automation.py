@@ -230,21 +230,39 @@ class BrowserAutomation:
         timeout: Optional[int] = None,
     ) -> bool:
         """Selecciona una opción dentro de un multiselect o dropdown con búsqueda."""
+        timeout_value = timeout or self.default_timeout
         try:
-            container = self.locator(container_selector, timeout)
-            container.wait_for(state="visible", timeout=timeout or self.default_timeout)
+            container = self.locator(container_selector, timeout_value)
+            container.wait_for(state="visible", timeout=timeout_value)
             container.click()
 
             if search_selector is not None:
-                search_box = self.locator(search_selector, timeout)
-                search_box.wait_for(state="visible", timeout=timeout or self.default_timeout)
-                search_box.fill(option_text)
-                time.sleep(random.uniform(0.2, 0.5))
+                try:
+                    search_box = self.locator(search_selector, timeout_value)
+                    search_box.wait_for(state="visible", timeout=timeout_value)
+                    search_box.fill("")
+                    search_box.fill(option_text)
+                    time.sleep(random.uniform(0.2, 0.5))
+                except PlaywrightError:
+                    pass
 
-            candidate = self.page.get_by_text(option_text, exact=False).first
-            candidate.wait_for(state="visible", timeout=timeout or self.default_timeout)
-            candidate.click()
-            return True
+            candidates = [
+                lambda: self.page.get_by_text(option_text, exact=False).first,
+                lambda: self.page.locator(f"text={option_text}").first,
+                lambda: self.page.locator(f"div:has-text('{option_text}')").first,
+                lambda: self.page.locator(f"//*[contains(normalize-space(.), '{option_text}')]"),
+            ]
+
+            for candidate_fn in candidates:
+                try:
+                    candidate = candidate_fn()
+                    candidate.wait_for(state="visible", timeout=timeout_value)
+                    candidate.click()
+                    return True
+                except PlaywrightError:
+                    continue
+
+            return False
         except PlaywrightError:
             return False
 
