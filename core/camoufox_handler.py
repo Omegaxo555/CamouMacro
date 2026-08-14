@@ -23,7 +23,7 @@ class CamoufoxHandler:
         tor_proxy: Optional[str] = None,
         profile_template: Optional[str] = None,
         headless: bool = True,
-        timeout: int = 30,
+        timeout: int = 30000,
         window_size: Optional[tuple[int, int]] = (400, 600),
     ):
 
@@ -133,6 +133,7 @@ class CamoufoxHandler:
                 self.page.set_default_timeout(self.timeout)
 
             logging.info("CamoufoxDriver inicializado exitosamente.")
+            logging.info(f"Timeout por defecto del navegador: {self.timeout}ms")
             logging.info(f"Ventana de navegador configurada en {self.window_size[0]}x{self.window_size[1]} (formato tablet/vertical).")
             return True
 
@@ -155,7 +156,7 @@ class CamoufoxHandler:
         for attempt in range(1, max_retries + 1):
             try:
                 logging.info(f"Navegando a {url} (Intento {attempt}/{max_retries})...")
-                response = self.page.goto(url, wait_until="domcontentloaded")
+                response = self.page.goto(url, wait_until="domcontentloaded", timeout=self.timeout)
 
                 if response and response.ok:
                     logging.info(f"Página cargada con éxito: {url} [{response.status}]")

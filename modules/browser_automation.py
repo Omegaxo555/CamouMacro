@@ -45,9 +45,14 @@ class BrowserAutomation:
     validaciones y waits controlados.
     """
 
-    def __init__(self, page: Page, default_timeout: int = 10000):
+    def __init__(self, page: Page, default_timeout: int = 10000, debug: bool = True):
         self.page = page
         self.default_timeout = default_timeout
+        self.debug = debug
+
+    def _debug(self, message: str) -> None:
+        if self.debug:
+            print(f"[browser_automation] {message}")
 
     # ------------------------------------------------------------------
     # Localización y espera
@@ -69,9 +74,16 @@ class BrowserAutomation:
 
     def find(self, target: Union[str, HtmlElement], timeout: Optional[int] = None) -> Locator:
         """Busca un elemento por selector o por HtmlElement."""
+        resolved = self.resolve_selector(target)
+        self._debug(f"Buscando elemento: {resolved}")
         locator = self.locator(target, timeout)
-        locator.wait_for(state="visible", timeout=timeout or self.default_timeout)
-        return locator
+        try:
+            locator.wait_for(state="visible", timeout=timeout or self.default_timeout)
+            self._debug(f"Elemento encontrado: {resolved}")
+            return locator
+        except PlaywrightError:
+            self._debug(f"Elemento NO encontrado: {resolved}")
+            raise
 
     def wait_for_visible(self, selector: Union[str, HtmlElement], timeout: Optional[int] = None) -> bool:
         try:
@@ -103,6 +115,8 @@ class BrowserAutomation:
         max_delay: int = 90,
         timeout: Optional[int] = None,
     ) -> bool:
+        resolved = self.resolve_selector(selector)
+        self._debug(f"Intentando escribir en '{resolved}' -> '{text}'")
         try:
             locator = self.locator(selector, timeout)
             locator.wait_for(state="visible", timeout=timeout or self.default_timeout)
@@ -118,8 +132,10 @@ class BrowserAutomation:
                 self.page.keyboard.type(char, delay=random.randint(min_delay, max_delay))
                 time.sleep(random.uniform(0.01, 0.05))
 
+            self._debug(f"Escritura completada en '{resolved}'")
             return True
-        except PlaywrightError:
+        except PlaywrightError as exc:
+            self._debug(f"Fallo al escribir en '{resolved}': {exc}")
             return False
 
     def fill(self, target: Union[str, HtmlElement], value: str, **kwargs) -> bool:
@@ -144,6 +160,8 @@ class BrowserAutomation:
         force: bool = False,
         click_count: int = 1,
     ) -> bool:
+        resolved = self.resolve_selector(selector)
+        self._debug(f"Intentando click en '{resolved}'")
         try:
             locator = self.locator(selector, timeout)
             locator.wait_for(state="visible", timeout=timeout or self.default_timeout)
@@ -151,8 +169,10 @@ class BrowserAutomation:
             locator.hover()
             time.sleep(random.uniform(0.08, 0.25))
             locator.click(force=force, click_count=click_count)
+            self._debug(f"Click exitoso en '{resolved}'")
             return True
-        except PlaywrightError:
+        except PlaywrightError as exc:
+            self._debug(f"Fallo al hacer click en '{resolved}': {exc}")
             return False
 
     def click(self, target: Union[str, HtmlElement], **kwargs) -> bool:
@@ -251,11 +271,14 @@ class BrowserAutomation:
     # ------------------------------------------------------------------
 
     def element_exists(self, selector: Union[str, HtmlElement], timeout: Optional[int] = None) -> bool:
+        resolved = self.resolve_selector(selector)
+        self._debug(f"Verificando existencia de '{resolved}'")
         try:
-            resolved = self.resolve_selector(selector)
             self.page.wait_for_selector(resolved, state="visible", timeout=timeout or self.default_timeout)
+            self._debug(f"Elemento visible encontrado: '{resolved}'")
             return True
         except PlaywrightError:
+            self._debug(f"Elemento no visible o no encontrado: '{resolved}'")
             return False
 
     def is_visible(self, selector: Union[str, HtmlElement], timeout: Optional[int] = None) -> bool:

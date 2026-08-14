@@ -32,29 +32,48 @@ class AllfeelloveAuto:
             print("[allfeellove_auto] El navegador no está inicializado.")
             return
 
-        self.automation = BrowserAutomation(self.driver.page)
+        self.automation = BrowserAutomation(self.driver.page, debug=True)
         print(f"[allfeellove_auto] Navegando a https://allfeellove.com")
-        self.driver.navigate("https://allfeellove.com")
-        self.driver.page.wait_for_load_state("domcontentloaded")
+        if not self.driver.navigate("https://allfeellove.com"):
+            print("[allfeellove_auto] No se pudo cargar la página. Revisa red, DNS, firewall o el sitio.")
+            return
 
-        # Ejemplo de uso con la clase reutilizable.
-        # Estos selectores deben adaptarse al HTML real de la página.
+        self.driver.page.wait_for_load_state("domcontentloaded", timeout=self.driver.timeout)
+        print(f"[allfeellove_auto] Página cargada. URL actual: {self.driver.page.url}")
+
         gender_button = HtmlElement.css("[data-testid='gender-option-male']")
         name_input = HtmlElement.css("input[name='name']")
         date_input = HtmlElement.css("input[type='date']")
         terms_checkbox = HtmlElement.css("input[type='checkbox']")
 
+        for label, selector in {
+            "genero": gender_button,
+            "nombre": name_input,
+            "fecha": date_input,
+            "terminos": terms_checkbox,
+        }.items():
+            print(f"[allfeellove_auto] Verificando selector de {label}: {selector}")
+            exists = self.automation.element_exists(selector)
+            print(f"[allfeellove_auto] ¿Existe {label}? {exists}")
+            if not exists:
+                print(f"[allfeellove_auto] No existe el elemento de {label}. Revisa el selector o la carga de la página.")
+                return
+
         print(f"[allfeellove_auto] Intentando click en: {gender_button}")
-        self.automation.safe_click(gender_button)
+        result = self.automation.safe_click(gender_button)
+        print(f"[allfeellove_auto] Resultado click género: {result}")
 
         print(f"[allfeellove_auto] Intentando completar el nombre.")
-        self.automation.human_type(name_input, "Thompsom")
+        result = self.automation.human_type(name_input, "Thompsom")
+        print(f"[allfeellove_auto] Resultado nombre: {result}")
 
         print(f"[allfeellove_auto] Intentando completar fecha.")
-        self.automation.select_date(date_input, "1990-01-01")
+        result = self.automation.select_date(date_input, "1990-01-01")
+        print(f"[allfeellove_auto] Resultado fecha: {result}")
 
         print(f"[allfeellove_auto] Intentando checkbox de términos.")
-        self.automation.check_checkbox(terms_checkbox, check=True)
+        result = self.automation.check_checkbox(terms_checkbox, check=True)
+        print(f"[allfeellove_auto] Resultado términos: {result}")
 
 
 def run_allfeellove_auto(driver: CamoufoxHandler) -> None:
