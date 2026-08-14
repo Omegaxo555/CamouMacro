@@ -36,13 +36,29 @@ class PeopleInfoGenerator:
     @staticmethod
     def _random_date(min_age: int = 25, max_age: int = 70) -> str:
         today = datetime.today()
-        min_date = today - timedelta(days=(max_age * 365.25))
-        max_date = today - timedelta(days=(min_age * 365.25))
 
-        min_ordinal = min_date.toordinal()
-        max_ordinal = max_date.toordinal()
-        random_ordinal = random.randint(min_ordinal, max_ordinal)
-        return datetime.fromordinal(random_ordinal).strftime("%Y-%m-%d")
+        if min_age > max_age:
+            min_age, max_age = max_age, min_age
+
+        for _ in range(2000):
+            year = random.randint(today.year - max_age, today.year - min_age)
+            month = random.randint(1, 12)
+
+            if month in (1, 3, 5, 7, 8, 10, 12):
+                day_max = 31
+            elif month == 2:
+                day_max = 29 if year % 4 == 0 else 28
+            else:
+                day_max = 30
+
+            day = random.randint(1, day_max)
+            candidate = f"{year:04d}-{month:02d}-{day:02d}"
+
+            age = today.year - year - ((today.month, today.day) < (month, day))
+            if min_age <= age <= max_age:
+                return candidate
+
+        return f"{today.year - min_age:04d}-01-01"
 
     @staticmethod
     def _normalize_name(name: str) -> str:
