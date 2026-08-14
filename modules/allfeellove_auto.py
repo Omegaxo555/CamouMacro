@@ -132,7 +132,7 @@ class AllfeelloveAuto:
         nextStep3_button = HtmlElement.css('button[data-test-id="cmp:ui-button click:skip skip"]')
         nextStep4_button = HtmlElement.css('button[data-test-id="cmp:ui-button click:onSkip Skip"]')
         nextStep5_button = HtmlElement.css('button[data-test-id="cmp:ui-button click:next Continue"]')
-        claimtokens = HtmlElement.css['[data-test-id="cmp:button-new click:claim-welcome-bonus"]']
+        claimtokens = HtmlElement.css('[data-test-id="cmp:button-new click:claim-welcome-bonus"]')
         cancelEmailConfirm = HtmlElement.css('#Close')
 
         self.automation.wait_for_visible(nextLets_button, timeout=160000)
