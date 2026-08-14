@@ -236,11 +236,16 @@ class BrowserAutomation:
             return False
 
     def select_date(self, selector: str, date_value: str, timeout: Optional[int] = None) -> bool:
-        """Ejemplo: '2026-08-14'."""
+        """Ejemplo: '2026-08-14' o '14-08-2026'."""
         try:
+            normalized = date_value.strip()
+            if len(normalized) == 10 and normalized[2] == '-' and normalized[5] == '-':
+                day, month, year = normalized.split('-')
+                normalized = f"{year}-{month}-{day}"
+
             locator = self.locator(selector, timeout)
             locator.wait_for(state="visible", timeout=timeout or self.default_timeout)
-            locator.fill(date_value)
+            locator.fill(normalized)
             return True
         except PlaywrightError:
             return False

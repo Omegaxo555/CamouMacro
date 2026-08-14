@@ -39,7 +39,7 @@ class PeopleInfoGenerator:
         min_date = today - timedelta(days=(max_age * 365.25))
         max_date = today - timedelta(days=(min_age * 365.25))
         random_day = random.randint(int(min_date.timestamp()), int(max_date.timestamp()))
-        return datetime.fromtimestamp(random_day).strftime("%d-%m-%Y")
+        return datetime.fromtimestamp(random_day).strftime("%Y-%m-%d")
 
     @staticmethod
     def _normalize_name(name: str) -> str:
