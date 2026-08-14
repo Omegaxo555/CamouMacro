@@ -85,6 +85,7 @@ class BrowserAutomation:
             self._debug(f"Elemento NO encontrado: {resolved}")
             raise
 
+
     def wait_for_visible(self, selector: Union[str, HtmlElement], timeout: Optional[int] = None) -> bool:
         try:
             self.locator(selector, timeout).wait_for(state="visible", timeout=timeout or self.default_timeout)
