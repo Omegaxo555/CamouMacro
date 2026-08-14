@@ -52,7 +52,7 @@ class PeopleInfoGenerator:
                 day_max = 30
 
             day = random.randint(1, day_max)
-            candidate = f"{year:04d}-{month:02d}-{day:02d}"
+            candidate = f"{day:02d}{month:02d}{year:04d}"
 
             age = today.year - year - ((today.month, today.day) < (month, day))
             if min_age <= age <= max_age:
