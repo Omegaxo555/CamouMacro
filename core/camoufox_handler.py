@@ -82,6 +82,10 @@ class CamoufoxHandler:
         Inicializa la sesión de Camoufox con el perfil preparado en RAM
         y la configuración de red Tor solo si está disponible.
         """
+        if self._camoufox_instance is not None and self.page is not None:
+            logging.info("La sesión del navegador ya está inicializada. Se reutiliza la instancia actual.")
+            return True
+
         try:
             user_data_path = self._prepare_profile()
 
@@ -109,12 +113,24 @@ class CamoufoxHandler:
             self._camoufox_instance = Camoufox(**camoufox_kwargs)
             context = self._camoufox_instance.__enter__()
             self.browser_context = context
-            if hasattr(context, "new_page"):
+
+            if hasattr(context, "pages"):
+                pages = getattr(context, "pages")
+                if pages:
+                    self.page = pages[0]
+                else:
+                    self.page = context.new_page()
+            elif hasattr(context, "new_page"):
                 self.page = context.new_page()
-                self.page.set_viewport_size({"width": self.window_size[0], "height": self.window_size[1]})
             else:
                 self.page = context
-            self.page.set_default_timeout(self.timeout)
+
+            if self.page is not None:
+                try:
+                    self.page.set_viewport_size({"width": self.window_size[0], "height": self.window_size[1]})
+                except Exception:
+                    pass
+                self.page.set_default_timeout(self.timeout)
 
             logging.info("CamoufoxDriver inicializado exitosamente.")
             logging.info(f"Ventana de navegador configurada en {self.window_size[0]}x{self.window_size[1]} (formato tablet/vertical).")
@@ -169,6 +185,9 @@ class CamoufoxHandler:
                 logging.info("Instancia del navegador cerrada.")
             except Exception as e:
                 logging.error(f"Error al cerrar la sesión de Camoufox: {e}")
+
+        self.browser_context = None
+        self.page = None
 
         # 2. Borrar permanentemente el directorio temporal en RAM
         if self.temp_dir and self.temp_dir.exists():
