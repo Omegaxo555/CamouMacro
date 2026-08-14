@@ -34,12 +34,15 @@ class PeopleInfoGenerator:
             random.seed(seed)
 
     @staticmethod
-    def _random_date(min_age: int = 25, max_age: int = 65) -> str:
+    def _random_date(min_age: int = 25, max_age: int = 70) -> str:
         today = datetime.today()
         min_date = today - timedelta(days=(max_age * 365.25))
         max_date = today - timedelta(days=(min_age * 365.25))
-        random_day = random.randint(int(min_date.timestamp()), int(max_date.timestamp()))
-        return datetime.fromtimestamp(random_day).strftime("%Y-%m-%d")
+
+        min_ordinal = min_date.toordinal()
+        max_ordinal = max_date.toordinal()
+        random_ordinal = random.randint(min_ordinal, max_ordinal)
+        return datetime.fromordinal(random_ordinal).strftime("%Y-%m-%d")
 
     @staticmethod
     def _normalize_name(name: str) -> str:
@@ -72,7 +75,7 @@ class PeopleInfoGenerator:
         return f"{normalized}{suffix}@{selected_domain}"
 
     @classmethod
-    def generate_birthdate(cls, min_age: int = 18, max_age: int = 40) -> str:
+    def generate_birthdate(cls, min_age: int = 25, max_age: int = 70) -> str:
         return cls._random_date(min_age=min_age, max_age=max_age)
 
     @classmethod
@@ -81,12 +84,12 @@ class PeopleInfoGenerator:
         return f"{prefix}{number}!"
 
     @classmethod
-    def generate_profile(cls, name: str | None = None, domain: str | None = None) -> dict:
+    def generate_profile(cls, name: str | None = None, domain: str | None = None, min_age: int = 25, max_age: int = 70) -> dict:
         selected_name = name or cls.generate_name()
         return {
             "name": selected_name,
             "email": cls.generate_email(selected_name, domain),
-            "birthdate": cls.generate_birthdate(),
+            "birthdate": cls.generate_birthdate(min_age=min_age, max_age=max_age),
             "password": cls.generate_password(),
             "gender": "male",
             "looking_for": "female",
