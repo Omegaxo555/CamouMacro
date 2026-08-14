@@ -98,7 +98,7 @@ class AllfeelloveAuto:
         print(f"[allfeellove_auto] Resultado nombre: {result}")
 
         print(f"[allfeellove_auto] Intentando completar fecha.")
-        result = self.automation.select_date(date_input, self.profile_dict['birthdate'])
+        result = self.automation.human_type(date_input, self.profile_dict['birthdate'])
         print(f"[allfeellove_auto] Resultado fecha: {result}")
 
         print(f"[allfeellove_auto] Intentando checkbox de términos.")
