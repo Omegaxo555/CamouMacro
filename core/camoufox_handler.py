@@ -25,6 +25,7 @@ class CamoufoxHandler:
         headless: bool = True,
         timeout: int = 30000,
         window_size: Optional[tuple[int, int]] = (400, 600),
+        tor_ports: Optional[list[int]] = None,
     ):
 
         resolved_proxy = proxy_server or tor_proxy or "socks5://127.0.0.1:9050"
@@ -34,12 +35,74 @@ class CamoufoxHandler:
         self.headless = headless
         self.timeout = timeout
         self.window_size = window_size or (400, 600)
+        self.tor_ports = tor_ports or [9050, 9150, 9051, 9052]
+        self._tor_port_index = 0
 
         self.browser_context: Optional[BrowserContext] = None
         self.page: Optional[Page] = None
         self.temp_dir: Optional[Path] = None
         self._camoufox_cm = None
         self._camoufox_instance = None
+
+    def _build_tor_proxy_for_port(self, port: int) -> str:
+        return f"socks5://127.0.0.1:{port}"
+
+    def _next_tor_proxy(self) -> str:
+        port = self.tor_ports[self._tor_port_index % len(self.tor_ports)]
+        self._tor_port_index += 1
+        return self._build_tor_proxy_for_port(port)
+
+    def _check_page_blocked_by_cloudflare(self) -> bool:
+        if not self.page:
+            return False
+
+        try:
+            current_url = (self.page.url or "").lower()
+            if "cloudflare" in current_url or "attention required" in current_url:
+                return True
+
+            body_text = self.page.locator("body").inner_text(timeout=3000)
+            body_lower = (body_text or "").lower()
+            markers = [
+                "attention required",
+                "sorry, you have been blocked",
+                "verify you are human",
+                "cloudflare ray id",
+                "checking your browser before accessing",
+                "just a moment",
+            ]
+            return any(marker in body_lower for marker in markers)
+        except Exception:
+            return False
+
+    def is_cloudflare_blocked(self) -> bool:
+        """Devuelve True si la página actual es la pantalla de bloqueo de Cloudflare."""
+        return self._check_page_blocked_by_cloudflare()
+
+    def rotate_connection(self, use_tor: bool = True, custom_proxy: Optional[str] = None) -> bool:
+        """Cierra la sesión actual y reinicia el navegador con una salida nueva. Si usa Tor, prueba otro puerto; si no, usa proxy_server/custom_proxy."""
+        logging.warning("Reiniciando navegador para cambiar salida de red y evitar bloqueo por Cloudflare...")
+        self.close()
+
+        if custom_proxy:
+            self.proxy_server = custom_proxy
+        elif use_tor:
+            self.tor_proxy = self._next_tor_proxy()
+            self.proxy_server = self.tor_proxy
+
+        return self.initialize()
+
+    def try_refresh_after_cloudflare_block(self, max_retries: int = 3) -> bool:
+        """Intenta navegar con rotación de salida si detecta bloqueo de Cloudflare."""
+        for attempt in range(1, max_retries + 1):
+            if self.page is not None and self._check_page_blocked_by_cloudflare():
+                logging.warning(f"Cloudflare bloqueó la página. Reiniciando conexión ({attempt}/{max_retries})...")
+                if not self.rotate_connection(use_tor=True):
+                    logging.error("No se pudo reiniciar la sesión del navegador.")
+                    return False
+                continue
+            return True
+        return True
     
     def _prepare_profile(self) -> Optional[str]:
         if not self.profile_template:
@@ -168,6 +231,16 @@ class CamoufoxHandler:
 
                 if response and response.ok:
                     logging.info(f"Página cargada con éxito: {url} [{response.status}]")
+                    if self._check_page_blocked_by_cloudflare():
+                        logging.warning("La página respondió con bloqueo de Cloudflare. Se intentará rotar la salida de red.")
+                        if not self.rotate_connection(use_tor=True):
+                            logging.error("No se pudo cambiar la salida de red para evitar Cloudflare.")
+                            return False
+                        if not self.page:
+                            return False
+                        response = self.page.goto(url, wait_until="domcontentloaded", timeout=self.timeout)
+                        if response and response.ok and not self._check_page_blocked_by_cloudflare():
+                            return True
                     return True
 
                 status = response.status if response else "Sin Respuesta"

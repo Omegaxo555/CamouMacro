@@ -37,6 +37,15 @@ class AllfeelloveAuto:
             print("[allfeellove_auto] No se pudo cargar la página. Revisa red, DNS, firewall o el sitio.")
             return
 
+        if self.driver.is_cloudflare_blocked():
+            print("[allfeellove_auto] Detectado bloqueo de Cloudflare. Reiniciando navegador con otra salida de red...")
+            if not self.driver.rotate_connection(use_tor=True):
+                print("[allfeellove_auto] No se pudo rotar la conexión para evitar el bloqueo.")
+                return
+            if not self.driver.navigate("https://allfeellove.com"):
+                print("[allfeellove_auto] La página sigue bloqueada después del reinicio.")
+                return
+
         self.driver.page.wait_for_load_state("domcontentloaded", timeout=self.driver.timeout)
         print(f"[allfeellove_auto] Página cargada. URL actual: {self.driver.page.url}")
 
@@ -58,7 +67,6 @@ class AllfeelloveAuto:
             "nombre": name_input,
             "fecha": date_input,
             "terminos": terms_checkbox,
-            "cookies": cookies_button,
             "enviar": submit_button
         }.items():
             print(f"[allfeellove_auto] Verificando selector de {label}: {selector}")
@@ -68,9 +76,12 @@ class AllfeelloveAuto:
                 print(f"[allfeellove_auto] No existe el elemento de {label}. Revisa el selector o la carga de la página.")
                 return
 
-        print(f"[allfeellove_auto] Intentando click en: {cookies_button}")
-        result = self.automation.safe_click(cookies_button)
-        print(f"[allfeellove_auto] Resultado click cookies: {result}")
+        if self.automation.element_exists(cookies_button):
+            print(f"[allfeellove_auto] Intentando click en: {cookies_button}")
+            result = self.automation.safe_click(cookies_button)
+            print(f"[allfeellove_auto] Resultado click cookies: {result}")
+        else:
+            print(f"[allfeellove_auto] Cookies_button not found")
 
         print(f"[allfeellove_auto] Intentando click en: {gender_button}")
         result = self.automation.safe_click(gender_button)
