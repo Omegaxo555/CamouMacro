@@ -108,9 +108,10 @@ class CamoufoxHandler:
 
             self._camoufox_instance = Camoufox(**camoufox_kwargs)
             context = self._camoufox_instance.__enter__()
+            self.browser_context = context
             if hasattr(context, "new_page"):
-                self.browser_context = context
-                self.page = context.new_page(viewport={"width": self.window_size[0], "height": self.window_size[1]})
+                self.page = context.new_page()
+                self.page.set_viewport_size({"width": self.window_size[0], "height": self.window_size[1]})
             else:
                 self.page = context
             self.page.set_default_timeout(self.timeout)
