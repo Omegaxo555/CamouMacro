@@ -42,11 +42,16 @@ class CamoufoxHandler:
         if not self.profile_template:
             logging.info("No se proporcionó una plantilla de perfil. Se utilizará el perfil predeterminado de Camoufox.")
             return None
-        
+
         archive_path = Path(self.profile_template)
         if not archive_path.is_file():
-            logging.error(f"el archivo de plantilla de perfil no existe: {self.profile_template}")
-            raise FileNotFoundError(f"el archivo de plantilla de perfil no existe: {self.profile_template}")
+            logging.warning(f"La plantilla de perfil no existe: {self.profile_template}. Intentando generarla automáticamente...")
+            try:
+                from generate_profile_template import build_profile_template
+                archive_path = Path(build_profile_template())
+            except Exception as exc:
+                logging.error(f"No se pudo crear la plantilla de perfil automática: {exc}")
+                raise FileNotFoundError(f"el archivo de plantilla de perfil no existe: {self.profile_template}") from exc
 
         self.temp_dir = Path(tempfile.mkdtemp(prefix="camoufox_session_", dir="/tmp"))
         logging.info(f"Extrayendo plantilla de perfil a: {self.temp_dir}")
