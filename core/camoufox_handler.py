@@ -95,12 +95,14 @@ class CamoufoxHandler:
             else:
                 logging.warning("Tor no está disponible en 127.0.0.1:9050. Iniciando Camoufox sin proxy.")
 
+            viewport = {"width": self.window_size[0], "height": self.window_size[1]}
             camoufox_kwargs = {
                 "headless": self.headless,
                 "humanize": True,
                 "os": "linux",
                 "geoip": tor_available,
                 "window": self.window_size,
+                "viewport": viewport,
             }
 
             if tor_available and self.proxy_server:
@@ -125,9 +127,9 @@ class CamoufoxHandler:
                 if pages:
                     self.page = pages[0]
                 else:
-                    self.page = context.new_page()
+                    self.page = context.new_page(viewport={"width": self.window_size[0], "height": self.window_size[1]})
             elif hasattr(context, "new_page"):
-                self.page = context.new_page()
+                self.page = context.new_page(viewport={"width": self.window_size[0], "height": self.window_size[1]})
             else:
                 self.page = context
 

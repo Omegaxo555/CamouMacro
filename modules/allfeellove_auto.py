@@ -1,7 +1,7 @@
 """Módulo base para construir el algoritmo Allfeellove Auto."""
 
 from __future__ import annotations
-
+import random
 import traceback
 
 from core.camoufox_handler import CamoufoxHandler
@@ -98,16 +98,16 @@ class AllfeelloveAuto:
 
         self.driver.page.wait_for_load_state("domcontentloaded", timeout=self.driver.timeout)
 
-        result = self.automation.human_type(mail_input, "thompsom@example.com")
+        result = self.automation.human_type(mail_input, f"thompsom{random.randint(1000, 9999)}@hotmail.com")
         print(f"[allfeellove_auto] Verificando existencia de input de mail: {result}")
 
-        result = self.automation.human_type(password_input, "password123")
+        result = self.automation.human_type(password_input, f"password123{random.randint(1000, 9999)}")
         print(f"[allfeellove_auto] Verificando existencia de input de password: {result}")
 
         result = self.automation.safe_click(signup_button)
         print(f"[allfeellove_auto] Verificando existencia de botón de signup: {result}")
 
-        
+
 def run_allfeellove_auto(driver: CamoufoxHandler) -> None:
     """Wrapper para ejecutar el algoritmo personalizado."""
     algorithm = AllfeelloveAuto(driver)
