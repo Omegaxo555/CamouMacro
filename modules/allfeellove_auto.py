@@ -24,7 +24,6 @@ class AllfeelloveAuto:
             raise
 
     def _run_algorithm(self) -> None:
-        """Implementa aquí tu algoritmo personalizado."""
         print("[allfeellove_auto] El algoritmo está listo para desarrollarse.")
         print("[allfeellove_auto] Completa la lógica dentro de AllfeelloveAuto.run().")
 
@@ -41,9 +40,11 @@ class AllfeelloveAuto:
         self.driver.page.wait_for_load_state("domcontentloaded", timeout=self.driver.timeout)
         print(f"[allfeellove_auto] Página cargada. URL actual: {self.driver.page.url}")
 
-        gender_button = HtmlElement.css("[data-testid='gender-option-male']")
-        name_input = HtmlElement.css("input[name='name']")
-        date_input = HtmlElement.css("input[type='date']")
+
+        gender_button = HtmlElement.css("label.gender__item.male")
+        lookingfor_button = HtmlElement.css('label[data-testid="option-woman"]')
+        name_input = HtmlElement.css('input[data-testid="name-input"]')
+        date_input = HtmlElement.css('input[data-testid="date-input"]')
         terms_checkbox = HtmlElement.css("input[type='checkbox']")
 
         for label, selector in {
@@ -62,6 +63,10 @@ class AllfeelloveAuto:
         print(f"[allfeellove_auto] Intentando click en: {gender_button}")
         result = self.automation.safe_click(gender_button)
         print(f"[allfeellove_auto] Resultado click género: {result}")
+
+        print(f"[allfeellove_auto] Intentando click en: {lookingfor_button}")
+        result = self.automation.safe_click(lookingfor_button)
+        print(f"[allfeellove_auto] Resultado click búsqueda: {result}")
 
         print(f"[allfeellove_auto] Intentando completar el nombre.")
         result = self.automation.human_type(name_input, "Thompsom")
