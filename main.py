@@ -79,10 +79,11 @@ def main():
                 break
 
             run_algorithm_with_debug(driver, selected)
-            again = TerminalUI.confirm("¿Quieres ejecutar otro algoritmo?", default=True)
-            if not again:
-                print("Saliendo del menú.")
-                break
+            again = input("¿Quieres ejecutar otro algoritmo? (S/N) [S]: ").strip().lower()
+            if again in ("", "s", "si", "y", "yes"):
+                continue
+            print("Saliendo del menú.")
+            break
 
     finally:
         driver.close()
