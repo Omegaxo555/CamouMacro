@@ -6,6 +6,15 @@ import os
 import sys
 
 try:
+    import termios
+    import tty
+    import select
+except ImportError:  # pragma: no cover
+    termios = None
+    tty = None
+    select = None
+
+try:
     import msvcrt
 except ImportError:  # pragma: no cover
     msvcrt = None
@@ -52,6 +61,31 @@ class TerminalUI:
             if key in {"\r", "\n"}:
                 return "enter"
             return key
+
+        if termios is not None and tty is not None and sys.stdin.isatty():
+            fd = sys.stdin.fileno()
+            old_settings = termios.tcgetattr(fd)
+            try:
+                tty.setcbreak(fd)
+                if select is not None:
+                    ready, _, _ = select.select([sys.stdin], [], [], 0.2)
+                    if not ready:
+                        return ""
+                ch = sys.stdin.read(1)
+                if ch == "\x1b":
+                    seq = ch + sys.stdin.read(2)
+                    mapping = {
+                        "\x1b[A": "up",
+                        "\x1b[B": "down",
+                        "\x1b[C": "right",
+                        "\x1b[D": "left",
+                    }
+                    return mapping.get(seq, seq)
+                if ch in {"\r", "\n"}:
+                    return "enter"
+                return ch
+            finally:
+                termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 
         ch = sys.stdin.read(1)
         if ch == "\x1b":

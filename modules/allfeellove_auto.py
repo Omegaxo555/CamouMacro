@@ -5,6 +5,8 @@ from __future__ import annotations
 from core.camoufox_handler import CamoufoxHandler
 from modules.browser_automation import BrowserAutomation as BaseBrowserAutomation
 
+import logging
+
 
 class AllfeelloveAuto:
     """Estructura base para tu algoritmo personalizado."""
