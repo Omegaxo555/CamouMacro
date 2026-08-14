@@ -46,6 +46,7 @@ class AllfeelloveAuto:
         name_input = HtmlElement.css('input.input.input_name.name-container__input')
         date_input = HtmlElement.xpath('/html/body/div[1]/div/div/main/div[1]/div/div[2]/div/div/form/div[3]/div[2]/div[1]/input')
         terms_checkbox = HtmlElement.xpath("/html/body/div[1]/div/div/main/div[1]/div/div[2]/div/div/form/div[4]/div[1]/div[1]/label")
+        submit_button = HtmlElement.css('button.button.button_submit')
 
         for label, selector in {
             "genero": gender_button,
@@ -53,7 +54,8 @@ class AllfeelloveAuto:
             "nombre": name_input,
             "fecha": date_input,
             "terminos": terms_checkbox,
-            "cookies": cookies_button
+            "cookies": cookies_button,
+            "enviar": submit_button
         }.items():
             print(f"[allfeellove_auto] Verificando selector de {label}: {selector}")
             exists = self.automation.element_exists(selector)
@@ -85,6 +87,10 @@ class AllfeelloveAuto:
         print(f"[allfeellove_auto] Intentando checkbox de términos.")
         result = self.automation.check_checkbox(terms_checkbox, check=True)
         print(f"[allfeellove_auto] Resultado términos: {result}")
+
+        print(f"[allfeellove_auto] Intentando click en: {submit_button}")
+        result = self.automation.safe_click(submit_button)
+        print(f"[allfeellove_auto] Resultado click enviar: {result}")
 
 
 def run_allfeellove_auto(driver: CamoufoxHandler) -> None:
