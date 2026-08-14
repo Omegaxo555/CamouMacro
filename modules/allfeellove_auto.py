@@ -108,6 +108,21 @@ class AllfeelloveAuto:
         result = self.automation.safe_click(signup_button)
         print(f"[allfeellove_auto] Verificando existencia de botón de signup: {result}")
 
+        skip1_button = HtmlElement.xpath('//*[@id="b82053a5-7218-420e-a8d8-190bfa6e0620"]')
+        //*[@id="b82053a5-7218-420e-a8d8-190bfa6e0620"]
+        //*[@id="b82053a5-7218-420e-a8d8-190bfa6e0620"] #82053a5-7218-420e-a8d8-190bfa6e0620
+        //*[@id="b82053a5-7218-420e-a8d8-190bfa6e0620"]
+        //*[@id="b82053a5-7218-420e-a8d8-190bfa6e0620"]
+        //*[@id="b82053a5-7218-420e-a8d8-190bfa6e0620"]
+        //*[@id="b82053a5-7218-420e-a8d8-190bfa6e0620"]
+
+        self.automation.wait_for_visible(skip1_button, timeout=50000)
+
+        result = self.automation.safe_click(skip1_button)
+        print(f"[allfeellove_auto] Verificando existencia de botón de skip1: {result}")
+
+
+
 
 def run_allfeellove_auto(driver: CamoufoxHandler) -> None:
     """Wrapper para ejecutar el algoritmo personalizado."""
