@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from core.camoufox_handler import CamoufoxHandler
+from modules.browser_automation import BrowserAutomation as BaseBrowserAutomation
 
 
 class AllfeelloveAuto:
@@ -12,6 +13,12 @@ class AllfeelloveAuto:
         self.driver = driver
 
     def run(self) -> None:
+        try:
+            self._run_algorithm()
+        except Exception as e:
+            print(f"[allfeellove_auto] Error al ejecutar el algoritmo: {e}")
+
+    def _run_algorithm(self) -> None:
         """Implementa aquí tu algoritmo personalizado."""
         print("[allfeellove_auto] El algoritmo está listo para desarrollarse.")
         print("[allfeellove_auto] Completa la lógica dentro de AllfeelloveAuto.run().")
@@ -21,8 +28,23 @@ class AllfeelloveAuto:
             return
 
         self.driver.navigate("https://allfeellove.com")
-        # self.driver.page.fill("input[name='q']", "camoumacro")
-        # self.driver.page.click("button[type='submit']")
+
+        self.driver.page.wait_for_load_state("domcontentloaded")
+
+        ###---------Main Page---------###
+        genderMale_button = HtmlElement.css("gender__item male")
+        checkboxWoman_button = HtmlElement.css("[data-testid='option-woman']")
+        nameContainer = HtmlElement.css("input input_name name-container__input")
+        dateContainer = HtmlElement.css("[data-testid='birth-day']")
+        terms_checkbox = HtmlElement.css("terms__label")
+
+        self.automation = BaseBrowserAutomation(self.driver.page)
+        self.automation.safe_click(genderMale_button)
+        self.automation.safe_click(checkboxWoman_button)
+        self.automation.safe_type(nameContainer, "Thompsom")
+        self.automation.safe_type(dateContainer, "01/01/1990", delay=100, humanize=True)
+        self.automation.safe_click(terms_checkbox, delay=100, humanize=True)
+
 
 
 def run_allfeellove_auto(driver: CamoufoxHandler) -> None:
