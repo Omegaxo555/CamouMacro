@@ -34,7 +34,7 @@ class PeopleInfoGenerator:
             random.seed(seed)
 
     @staticmethod
-    def _random_date(min_age: int = 18, max_age: int = 40) -> str:
+    def _random_date(min_age: int = 25, max_age: int = 65) -> str:
         today = datetime.today()
         min_date = today - timedelta(days=(max_age * 365.25))
         max_date = today - timedelta(days=(min_age * 365.25))
