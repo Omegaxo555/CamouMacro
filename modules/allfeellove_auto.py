@@ -117,13 +117,13 @@ class AllfeelloveAuto:
         result = self.automation.human_type(password_input, "self.profile_dict['password']")
         print(f"[allfeellove_auto] Verificando existencia de input de password: {result}")
 
-        result = self.automation.safe_click(signup_button)
-        result = self.automation.safe_click(signup_button)
+        result = self.automation.safe_click(signup_button,click_count=3)
         print(f"[allfeellove_auto] Verificando existencia de botón de signup: {result}")
 
         #--------Saltando a la reclamar los credits-------#
 
         print('[allfeellove_auto] Esperando por inicio de sesion')
+        self.driver.page.wait_for_load_state("domcontentloaded", timeout=self.driver.timeout)
 
         nextLets_button = HtmlElement.css('button[data-test-id="cmp:ui-button click:next Let’s do it!"]')
         nextStep_button = HtmlElement.css('button[data-test-id="cmp:ui-button click:skip skip"]')
@@ -131,7 +131,8 @@ class AllfeelloveAuto:
         nextStep3_button = HtmlElement.css('button[data-test-id="cmp:ui-button click:skip skip"]')
         nextStep4_button = HtmlElement.css('button[data-test-id="cmp:ui-button click:onSkip Skip"]')
         nextStep5_button = HtmlElement.css('button[data-test-id="cmp:ui-button click:next Continue"]')
-        
+        claimtokens = HtmlElement.css['[data-test-id="cmp:button-new click:claim-welcome-bonus"]']
+        cancelEmailConfirm = HtmlElement.css('#Close')
 
         self.automation.wait_for_visible(nextLets_button, timeout=160000)
         result = self.automation.safe_click(nextLets_button)
@@ -156,6 +157,39 @@ class AllfeelloveAuto:
         self.automation.wait_for_visible(nextStep5_button, timeout=10000)
         result = self.automation.safe_click(nextStep5_button)
         print(f"[allfeellove_auto] Verificando existencia de botón de skip1: {result}")
+
+        self.automation.wait_for_visible(claimtokens, timeout=10000)
+        result = self.automation.safe_click(claimtokens)
+        print(f'--------------------------Se han reclamado 20 tokens----------------')
+
+        self.automation.wait_for_visible(cancelEmailConfirm, timeout=10000)
+        result = self.automation.safe_click(cancelEmailConfirm)
+
+        #------------Busqueda de los perfiles-----------#
+
+        accountSearch = HtmlElement.css('#AccountSearch')
+        filtersButton = HtmlElement.css('[data-test-id="file:extend-search click:show-filter filters"]')
+        fromAge = HtmlElement.css('input[placeholder="From"]')
+        toAge = HtmlElement.css('input[placeholder="To"]')
+        searchPeople = HtmlElement.css('button[data-test-id="cmp:ui-button click:show-people show-people"]')
+
+        result = self.automation.safe_click(accountSearch)
+        print(f"[allfeellove_auto] Iniciando la busqueda del perfil, abriendo la seccion de busqueda: {result}")
+        self.driver.page.wait_for_load_state("domcontentloaded", timeout=self.driver.timeout)
+
+        result = self.automation.safe_click(filtersButton)
+        print(f'[allfeellove_auto] Abriendo el apartado de filtros: {result}')
+
+        self.automation.safe_click(fromAge)
+        result = self.automation.human_type(fromAge,"41")
+        print(f'[allfeellove_auto] From Filter edited: {result}')
+
+        self.automation.safe_click(toAge)
+        result = self.automation.human_type(fromAge,"41")
+        print(f'[allfeellove_auto] To filter edited: {result}')
+
+        self.automation.safe_click(searchPeople)
+        print(f'[allfeellove_auto] Filtros Terminados...')
 
 
 
