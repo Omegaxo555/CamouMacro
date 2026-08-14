@@ -42,8 +42,7 @@ def build_profile_template() -> Path:
         headless=True,
         humanize=True,
         os=os_value,
-        geoip=True,
-        proxy={"server": "socks5://127.0.0.1:9050"},
+        geoip=False,
     )
 
     try:
