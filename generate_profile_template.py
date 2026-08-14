@@ -28,7 +28,12 @@ def build_profile_template() -> Path:
     ensure_clean_dir(TEMPLATE_DIR)
 
     system_name = platform.system().lower()
-    os_value = "lin" if system_name.startswith("linux") else "win" if system_name.startswith("windows") else "mac"
+    if system_name.startswith("linux"):
+        os_value = "linux"
+    elif system_name.startswith("windows"):
+        os_value = "windows"
+    else:
+        os_value = "mac"
 
     print(f"Creando plantilla de perfil en: {TEMPLATE_DIR}")
     print(f"Sistema detectado: {system_name} -> os={os_value}")
