@@ -162,12 +162,28 @@ class BrowserAutomation:
     ) -> bool:
         resolved = self.resolve_selector(selector)
         self._debug(f"Intentando click en '{resolved}'")
+        timeout_value = timeout or self.default_timeout
+
         try:
-            locator = self.locator(selector, timeout)
-            locator.wait_for(state="visible", timeout=timeout or self.default_timeout)
-            locator.scroll_into_view_if_needed()
+            locator = self.locator(selector, timeout_value)
+            locator.wait_for(state="visible", timeout=timeout_value)
+
+            try:
+                box = locator.bounding_box()
+                if box:
+                    viewport = self.page.viewport_size or {"width": 1280, "height": 720}
+                    in_viewport = (
+                        box["y"] >= 0 and box["y"] + box["height"] <= viewport["height"] and
+                        box["x"] >= 0 and box["x"] + box["width"] <= viewport["width"]
+                    )
+                    if not in_viewport:
+                        self._debug(f"El elemento no está visible en el viewport; desplazando solo una vez.")
+                        locator.scroll_into_view_if_needed()
+            except PlaywrightError:
+                pass
+
             locator.hover()
-            time.sleep(random.uniform(0.08, 0.25))
+            time.sleep(random.uniform(0.08, 0.2))
             locator.click(force=force, click_count=click_count)
             self._debug(f"Click exitoso en '{resolved}'")
             return True
