@@ -58,7 +58,7 @@ class PeopleInfoGenerator:
             if min_age <= age <= max_age:
                 return candidate
 
-        return f"{today.year - min_age:04d}-01-01"
+        return f"0101{today.year - min_age:04d}"
 
     @staticmethod
     def _normalize_name(name: str) -> str:
