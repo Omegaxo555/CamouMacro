@@ -39,10 +39,12 @@ def build_profile_template() -> Path:
     print(f"Sistema detectado: {system_name} -> os={os_value}")
 
     browser = Camoufox(
+        persistent_context=True,
         user_data_dir=str(TEMPLATE_DIR),
         headless=True,
         humanize=True,
         os=os_value,
+        geoip=True,
         proxy={"server": "socks5://127.0.0.1:9050"},
     )
 

@@ -78,10 +78,12 @@ class CamoufoxHandler:
                 "proxy": {"server": self.proxy_server},
                 "headless": self.headless,
                 "humanize": True,
-                "os": "lin"
+                "os": "linux",
+                "geoip": True,
             }
 
             if user_data_path:
+                camoufox_kwargs["persistent_context"] = True
                 camoufox_kwargs["user_data_dir"] = user_data_path
 
             self._camoufox_instance = Camoufox(**camoufox_kwargs)
