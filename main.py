@@ -1,11 +1,124 @@
 """Aplicación principal con menú interactivo de selección de algoritmos."""
 
+import os
+import shutil
+import socket
+import subprocess
+import sys
+import time
 import traceback
+from pathlib import Path
 
 from core.camoufox_handler import CamoufoxHandler
 from core.terminal_ui import TerminalUI
 from modules.allfeellove_auto import run_allfeellove_auto
 from modules.form_automator import FormAutomator
+
+TOR_PROCESS = None
+
+
+def is_port_open(host: str = "127.0.0.1", port: int = 9050, timeout: float = 1.0) -> bool:
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+def find_tor_executable() -> str | None:
+    candidates = []
+
+    if os.name == "nt":
+        candidates.extend([
+            "tor.exe",
+            shutil.which("tor.exe"),
+            r"C:\Users\paulo\AppData\Local\Tor Browser\Browser\TorBrowser\Tor\tor.exe",
+            r"C:\Program Files\Tor Browser\Browser\TorBrowser\Tor\tor.exe",
+            r"C:\Program Files (x86)\Tor Browser\Browser\TorBrowser\Tor\tor.exe",
+        ])
+    else:
+        candidates.extend([
+            "tor",
+            shutil.which("tor"),
+            "/usr/bin/tor",
+            "/usr/local/bin/tor",
+        ])
+
+    for candidate in candidates:
+        if not candidate:
+            continue
+        if os.path.exists(candidate):
+            return str(candidate)
+        if shutil.which(candidate):
+            return shutil.which(candidate)
+    return None
+
+
+def start_tor_background() -> subprocess.Popen | None:
+    global TOR_PROCESS
+
+    if is_port_open(port=9050):
+        print(f"{TerminalUI.ANSI['fg_green']}[tor]{TerminalUI.ANSI['reset']} Tor ya está corriendo en 127.0.0.1:9050")
+        return None
+
+    tor_path = find_tor_executable()
+    if not tor_path:
+        print(f"{TerminalUI.ANSI['fg_red']}[tor]{TerminalUI.ANSI['reset']} No se encontró 'tor' ni 'tor.exe' en el sistema.")
+        return None
+
+    try:
+        if os.name == "nt":
+            TOR_PROCESS = subprocess.Popen(
+                [tor_path],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                creationflags=subprocess.CREATE_NEW_CONSOLE,
+                cwd=str(Path(tor_path).parent),
+            )
+        else:
+            TOR_PROCESS = subprocess.Popen(
+                [tor_path],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+
+        for _ in range(30):
+            if is_port_open(port=9050):
+                print(f"{TerminalUI.ANSI['fg_green']}[tor]{TerminalUI.ANSI['reset']} Tor arrancó correctamente en 127.0.0.1:9050")
+                return TOR_PROCESS
+            time.sleep(0.5)
+
+        print(f"{TerminalUI.ANSI['fg_red']}[tor]{TerminalUI.ANSI['reset']} Tor se inició pero no respondió en 127.0.0.1:9050.")
+        stop_tor_background()
+        return None
+    except Exception as exc:
+        print(f"{TerminalUI.ANSI['fg_red']}[tor]{TerminalUI.ANSI['reset']} Error al iniciar Tor: {exc}")
+        return None
+
+
+def stop_tor_background() -> None:
+    global TOR_PROCESS
+
+    if TOR_PROCESS is None:
+        return
+
+    try:
+        if TOR_PROCESS.poll() is None:
+            if os.name == "nt":
+                TOR_PROCESS.terminate()
+            else:
+                TOR_PROCESS.terminate()
+            try:
+                TOR_PROCESS.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                TOR_PROCESS.kill()
+                TOR_PROCESS.wait(timeout=10)
+        print(f"{TerminalUI.ANSI['fg_yellow']}[tor]{TerminalUI.ANSI['reset']} Tor detenido.")
+    except Exception as exc:
+        print(f"{TerminalUI.ANSI['fg_red']}[tor]{TerminalUI.ANSI['reset']} Error cerrando Tor: {exc}")
+    finally:
+        TOR_PROCESS = None
 
 
 def run_form_demo(driver: CamoufoxHandler) -> None:
@@ -57,6 +170,7 @@ def run_algorithm_with_debug(driver: CamoufoxHandler, selected: dict) -> None:
 
 def main():
     plantilla_perfil = "templates/perfil_base.tar.gz"
+    start_tor_background()
 
     driver = CamoufoxHandler(
         tor_proxy="socks5://127.0.0.1:9050",
@@ -87,6 +201,7 @@ def main():
 
     finally:
         driver.close()
+        stop_tor_background()
 
 
 if __name__ == "__main__":
