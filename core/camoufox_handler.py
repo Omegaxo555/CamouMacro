@@ -170,26 +170,3 @@ class CamoufoxHandler:
                 logging.info("Sesión cerrada correctamente.")
             except Exception as e:
                 logging.error(f"Error al cerrar la sesión de Camoufox: {e}")
-
-
-# --- Ejemplo de Ejecución ---
-if __name__ == "__main__":
-    bot = CamoufoxBot(
-        tor_proxy="socks5://127.0.0.1:9050",
-        headless=False  # Cambiar a True cuando no requieras interfaz visual
-    )
-
-    try:
-        if bot.start():
-            # 1. Verificar que Tor esté funcionando
-            bot.verify_ip()
-
-            # 2. Navegar a una URL de prueba rápida
-            bot.navigate("https://httpbin.org/ip")
-            
-            # Pausa breve para observar la ejecución
-            if bot.page:
-                bot.page.wait_for_timeout(3000)
-
-    finally:
-        bot.stop()

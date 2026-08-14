@@ -2,14 +2,14 @@
 main.py
 """
 
-from core.camoufox_driver import CamoufoxDriver
+from core.camoufox_handler import CamoufoxHandler
 from modules.form_automator import FormAutomator
 
 def main():
     # Asignar la plantilla de perfil persistente (si existe)
     PLANTILLA_PERFIL = "templates/perfil_base.tar.gz"
 
-    driver = CamoufoxDriver(
+    driver = CamoufoxHandler(
         proxy_server="socks5://127.0.0.1:9050",
         profile_template=PLANTILLA_PERFIL,  # Extrae en /tmp y limpia al cerrar
         headless=False
