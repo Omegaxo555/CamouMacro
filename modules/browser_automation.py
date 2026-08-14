@@ -222,6 +222,32 @@ class BrowserAutomation:
         except PlaywrightError:
             return False
 
+    def select_multiselect_option(
+        self,
+        container_selector: Union[str, HtmlElement],
+        option_text: str,
+        search_selector: Optional[Union[str, HtmlElement]] = None,
+        timeout: Optional[int] = None,
+    ) -> bool:
+        """Selecciona una opción dentro de un multiselect o dropdown con búsqueda."""
+        try:
+            container = self.locator(container_selector, timeout)
+            container.wait_for(state="visible", timeout=timeout or self.default_timeout)
+            container.click()
+
+            if search_selector is not None:
+                search_box = self.locator(search_selector, timeout)
+                search_box.wait_for(state="visible", timeout=timeout or self.default_timeout)
+                search_box.fill(option_text)
+                time.sleep(random.uniform(0.2, 0.5))
+
+            candidate = self.page.get_by_text(option_text, exact=False).first
+            candidate.wait_for(state="visible", timeout=timeout or self.default_timeout)
+            candidate.click()
+            return True
+        except PlaywrightError:
+            return False
+
     def check_checkbox(self, selector: str, check: bool = True, timeout: Optional[int] = None) -> bool:
         try:
             locator = self.locator(selector, timeout)

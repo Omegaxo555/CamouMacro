@@ -170,6 +170,8 @@ class AllfeelloveAuto:
 
         accountSearch = HtmlElement.css('#AccountSearch')
         filtersButton = HtmlElement.css('[data-test-id="file:extend-search click:show-filter filters"]')
+        countrySelect = HtmlElement.css(input'.multiselect__element')
+        countrySearchInput = HtmlElement.css('input[placeholder*="country"], input[placeholder*="Country"], .multiselect__input')
         fromAge = HtmlElement.css('input[placeholder="From"]')
         toAge = HtmlElement.css('input[placeholder="To"]')
         searchPeople = HtmlElement.css('button[data-test-id="cmp:ui-button click:show-people show-people"]')
@@ -181,12 +183,20 @@ class AllfeelloveAuto:
         result = self.automation.safe_click(filtersButton)
         print(f'[allfeellove_auto] Abriendo el apartado de filtros: {result}')
 
+        result = self.automation.select_multiselect_option(
+            countrySelect,
+            "United States",
+            search_selector=countrySearchInput,
+            timeout=10000,
+        )
+        print(f'[allfeellove_auto] País seleccionado: {result}')
+
         self.automation.safe_click(fromAge)
-        result = self.automation.human_type(fromAge,"41")
+        result = self.automation.human_type(fromAge, "41")
         print(f'[allfeellove_auto] From Filter edited: {result}')
 
         self.automation.safe_click(toAge)
-        result = self.automation.human_type(fromAge,"41")
+        result = self.automation.human_type(toAge, "41")
         print(f'[allfeellove_auto] To filter edited: {result}')
 
         self.automation.safe_click(searchPeople)
