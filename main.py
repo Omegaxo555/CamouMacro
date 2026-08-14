@@ -1,5 +1,7 @@
 """Aplicación principal con menú interactivo de selección de algoritmos."""
 
+import traceback
+
 from core.camoufox_handler import CamoufoxHandler
 from core.terminal_ui import TerminalUI
 from modules.allfeellove_auto import run_allfeellove_auto
@@ -37,6 +39,22 @@ def show_algorithm_menu() -> dict:
     return ALGORITHMS[selected_index]
 
 
+def run_algorithm_with_debug(driver: CamoufoxHandler, selected: dict) -> None:
+    option_id = selected["id"]
+    print(f"\n{TerminalUI.ANSI['fg_cyan']}[debug] Iniciando algoritmo: {option_id}{TerminalUI.ANSI['reset']}")
+    try:
+        selected["handler"](driver)
+        print(f"{TerminalUI.ANSI['fg_green']}[debug] Finalizó el algoritmo: {option_id}{TerminalUI.ANSI['reset']}")
+    except Exception as exc:
+        print(f"{TerminalUI.ANSI['fg_red']}[debug] ERROR en algoritmo: {option_id}{TerminalUI.ANSI['reset']}")
+        print(f"{TerminalUI.ANSI['fg_red']}[debug] Excepción: {exc}{TerminalUI.ANSI['reset']}")
+        traceback.print_exc()
+        if driver.page is not None:
+            print(f"{TerminalUI.ANSI['fg_yellow']}[debug] URL actual: {driver.page.url}{TerminalUI.ANSI['reset']}")
+        print(f"{TerminalUI.ANSI['fg_yellow']}[debug] Presiona Enter para volver al menú...{TerminalUI.ANSI['reset']}")
+        input()
+
+
 def main():
     plantilla_perfil = "templates/perfil_base.tar.gz"
 
@@ -60,7 +78,7 @@ def main():
                 selected["handler"]()
                 break
 
-            selected["handler"](driver)
+            run_algorithm_with_debug(driver, selected)
             again = TerminalUI.confirm("¿Quieres ejecutar otro algoritmo?", default=True)
             if not again:
                 print("Saliendo del menú.")

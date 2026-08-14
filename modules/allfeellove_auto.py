@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from core.camoufox_handler import CamoufoxHandler
-from modules.browser_automation import BrowserAutomation as BaseBrowserAutomation
+import traceback
 
-import logging
+from core.camoufox_handler import CamoufoxHandler
+from modules.browser_automation import BrowserAutomation, HtmlElement
 
 
 class AllfeelloveAuto:
@@ -13,12 +13,15 @@ class AllfeelloveAuto:
 
     def __init__(self, driver: CamoufoxHandler):
         self.driver = driver
+        self.automation = BrowserAutomation(driver.page) if driver.page else None
 
     def run(self) -> None:
         try:
             self._run_algorithm()
-        except Exception as e:
-            print(f"[allfeellove_auto] Error al ejecutar el algoritmo: {e}")
+        except Exception as exc:
+            print(f"[allfeellove_auto] Error al ejecutar el algoritmo: {exc}")
+            traceback.print_exc()
+            raise
 
     def _run_algorithm(self) -> None:
         """Implementa aquí tu algoritmo personalizado."""
@@ -29,24 +32,29 @@ class AllfeelloveAuto:
             print("[allfeellove_auto] El navegador no está inicializado.")
             return
 
+        self.automation = BrowserAutomation(self.driver.page)
+        print(f"[allfeellove_auto] Navegando a https://allfeellove.com")
         self.driver.navigate("https://allfeellove.com")
-
         self.driver.page.wait_for_load_state("domcontentloaded")
 
-        ###---------Main Page---------###
-        genderMale_button = HtmlElement.css("gender__item male")
-        checkboxWoman_button = HtmlElement.css("[data-testid='option-woman']")
-        nameContainer = HtmlElement.css("input input_name name-container__input")
-        dateContainer = HtmlElement.css("[data-testid='birth-day']")
-        terms_checkbox = HtmlElement.css("terms__label")
+        # Ejemplo de uso con la clase reutilizable.
+        # Estos selectores deben adaptarse al HTML real de la página.
+        gender_button = HtmlElement.css("[data-testid='gender-option-male']")
+        name_input = HtmlElement.css("input[name='name']")
+        date_input = HtmlElement.css("input[type='date']")
+        terms_checkbox = HtmlElement.css("input[type='checkbox']")
 
-        self.automation = BaseBrowserAutomation(self.driver.page)
-        self.automation.safe_click(genderMale_button)
-        self.automation.safe_click(checkboxWoman_button)
-        self.automation.safe_type(nameContainer, "Thompsom")
-        self.automation.safe_type(dateContainer, "01/01/1990", delay=100, humanize=True)
-        self.automation.safe_click(terms_checkbox, delay=100, humanize=True)
+        print(f"[allfeellove_auto] Intentando click en: {gender_button}")
+        self.automation.safe_click(gender_button)
 
+        print(f"[allfeellove_auto] Intentando completar el nombre.")
+        self.automation.human_type(name_input, "Thompsom")
+
+        print(f"[allfeellove_auto] Intentando completar fecha.")
+        self.automation.select_date(date_input, "1990-01-01")
+
+        print(f"[allfeellove_auto] Intentando checkbox de términos.")
+        self.automation.check_checkbox(terms_checkbox, check=True)
 
 
 def run_allfeellove_auto(driver: CamoufoxHandler) -> None:
