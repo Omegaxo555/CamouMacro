@@ -33,18 +33,19 @@ class AllfeelloveAuto:
 
         self.automation = BrowserAutomation(self.driver.page, debug=True)
         print(f"[allfeellove_auto] Navegando a https://allfeellove.com")
+        if self.driver.is_cloudflare_blocked():
+                    print("[allfeellove_auto] Detectado bloqueo de Cloudflare. Reiniciando navegador con otra salida de red...")
+                    if not self.driver.rotate_connection(use_tor=True):
+                        print("[allfeellove_auto] No se pudo rotar la conexión para evitar el bloqueo.")
+                        return
+                    if not self.driver.navigate("https://allfeellove.com"):
+                        print("[allfeellove_auto] La página sigue bloqueada después del reinicio.")
+                        return
         if not self.driver.navigate("https://allfeellove.com"):
             print("[allfeellove_auto] No se pudo cargar la página. Revisa red, DNS, firewall o el sitio.")
             return
 
-        if self.driver.is_cloudflare_blocked():
-            print("[allfeellove_auto] Detectado bloqueo de Cloudflare. Reiniciando navegador con otra salida de red...")
-            if not self.driver.rotate_connection(use_tor=True):
-                print("[allfeellove_auto] No se pudo rotar la conexión para evitar el bloqueo.")
-                return
-            if not self.driver.navigate("https://allfeellove.com"):
-                print("[allfeellove_auto] La página sigue bloqueada después del reinicio.")
-                return
+        
 
         self.driver.page.wait_for_load_state("domcontentloaded", timeout=self.driver.timeout)
         print(f"[allfeellove_auto] Página cargada. URL actual: {self.driver.page.url}")
