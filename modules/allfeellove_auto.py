@@ -81,7 +81,7 @@ class AllfeelloveAuto:
         print(f"[allfeellove_auto] Resultado nombre: {result}")
 
         print(f"[allfeellove_auto] Intentando completar fecha.")
-        result = self.automation.select_date(date_input, "19-01-2000")
+        result = self.automation.select_date(date_input, "10-10-1998")
         print(f"[allfeellove_auto] Resultado fecha: {result}")
 
         print(f"[allfeellove_auto] Intentando checkbox de términos.")
