@@ -6,6 +6,7 @@ import traceback
 
 from core.camoufox_handler import CamoufoxHandler
 from modules.browser_automation import BrowserAutomation, HtmlElement
+from modules.InfoGeneration.peopleInfo_generator import PeopleInfoGenerator
 
 
 class AllfeelloveAuto:
@@ -17,6 +18,8 @@ class AllfeelloveAuto:
 
     def run(self) -> None:
         try:
+            self.profile_dict = PeopleInfoGenerator.generate_profile()
+            print(f"[allfeellove_auto] Iniciando algoritmo para perfil de {self.profile_dict['name']}")
             self._run_algorithm()
         except Exception as exc:
             print(f"[allfeellove_auto] Error al ejecutar el algoritmo: {exc}")
@@ -33,6 +36,9 @@ class AllfeelloveAuto:
 
         self.automation = BrowserAutomation(self.driver.page, debug=True)
         print(f"[allfeellove_auto] Navegando a https://allfeellove.com")
+        if not self.driver.navigate("https://allfeellove.com"):
+            print("[allfeellove_auto] No se pudo cargar la página. Revisa red, DNS, firewall o el sitio.")
+            return
         if self.driver.is_cloudflare_blocked():
                     print("[allfeellove_auto] Detectado bloqueo de Cloudflare. Reiniciando navegador con otra salida de red...")
                     if not self.driver.rotate_connection(use_tor=True):
@@ -41,11 +47,6 @@ class AllfeelloveAuto:
                     if not self.driver.navigate("https://allfeellove.com"):
                         print("[allfeellove_auto] La página sigue bloqueada después del reinicio.")
                         return
-        if not self.driver.navigate("https://allfeellove.com"):
-            print("[allfeellove_auto] No se pudo cargar la página. Revisa red, DNS, firewall o el sitio.")
-            return
-
-        
 
         self.driver.page.wait_for_load_state("domcontentloaded", timeout=self.driver.timeout)
         print(f"[allfeellove_auto] Página cargada. URL actual: {self.driver.page.url}")
@@ -93,11 +94,11 @@ class AllfeelloveAuto:
         print(f"[allfeellove_auto] Resultado click búsqueda: {result}")
 
         print(f"[allfeellove_auto] Intentando completar el nombre.")
-        result = self.automation.human_type(name_input, "Thompsom")
+        result = self.automation.human_type(name_input, self.profile_dict['name'])
         print(f"[allfeellove_auto] Resultado nombre: {result}")
 
         print(f"[allfeellove_auto] Intentando completar fecha.")
-        result = self.automation.select_date(date_input, "10-10-1998")
+        result = self.automation.select_date(date_input, self.profile_dict['birthdate'])
         print(f"[allfeellove_auto] Resultado fecha: {result}")
 
         print(f"[allfeellove_auto] Intentando checkbox de términos.")
@@ -110,10 +111,10 @@ class AllfeelloveAuto:
 
         self.driver.page.wait_for_load_state("domcontentloaded", timeout=self.driver.timeout)
 
-        result = self.automation.human_type(mail_input, f"thompsom{random.randint(1000, 9999)}@hotmail.com")
+        result = self.automation.human_type(mail_input, self.profile_dict['email'])
         print(f"[allfeellove_auto] Verificando existencia de input de mail: {result}")
 
-        result = self.automation.human_type(password_input, f"password123{random.randint(1000, 9999)}")
+        result = self.automation.human_type(password_input, "self.profile_dict['password']")
         print(f"[allfeellove_auto] Verificando existencia de input de password: {result}")
 
         result = self.automation.safe_click(signup_button)
@@ -121,6 +122,8 @@ class AllfeelloveAuto:
         print(f"[allfeellove_auto] Verificando existencia de botón de signup: {result}")
 
         #--------Saltando a la reclamar los credits-------#
+
+        print('[allfeellove_auto] Esperando por inicio de sesion')
 
         nextLets_button = HtmlElement.css('button[data-test-id="cmp:ui-button click:next Let’s do it!"]')
         nextStep_button = HtmlElement.css('button[data-test-id="cmp:ui-button click:skip skip"]')
@@ -134,23 +137,23 @@ class AllfeelloveAuto:
         result = self.automation.safe_click(nextLets_button)
         print(f"[allfeellove_auto] Verificando existencia de botón de skip1: {result}")
 
-        self.automation.wait_for_visible(nextStep_button, timeout=160000)
+        self.automation.wait_for_visible(nextStep_button, timeout=10000)
         result = self.automation.safe_click(nextStep_button)
         print(f"[allfeellove_auto] Verificando existencia de botón de skip1: {result}")
         
-        self.automation.wait_for_visible(nextStep2_button, timeout=160000)
+        self.automation.wait_for_visible(nextStep2_button, timeout=10000)
         result = self.automation.safe_click(nextStep2_button)
         print(f"[allfeellove_auto] Verificando existencia de botón de skip1: {result}")
 
-        self.automation.wait_for_visible(nextStep3_button, timeout=160000)
+        self.automation.wait_for_visible(nextStep3_button, timeout=10000)
         result = self.automation.safe_click(nextStep3_button)
         print(f"[allfeellove_auto] Verificando existencia de botón de skip1: {result}")
 
-        self.automation.wait_for_visible(nextStep4_button, timeout=160000)
+        self.automation.wait_for_visible(nextStep4_button, timeout=10000)
         result = self.automation.safe_click(nextStep4_button)
         print(f"[allfeellove_auto] Verificando existencia de botón de skip1: {result}")
 
-        self.automation.wait_for_visible(nextStep5_button, timeout=160000)
+        self.automation.wait_for_visible(nextStep5_button, timeout=10000)
         result = self.automation.safe_click(nextStep5_button)
         print(f"[allfeellove_auto] Verificando existencia de botón de skip1: {result}")
 
