@@ -47,6 +47,10 @@ class AllfeelloveAuto:
         date_input = HtmlElement.xpath('/html/body/div[1]/div/div/main/div[1]/div/div[2]/div/div/form/div[3]/div[2]/div[1]/input')
         terms_checkbox = HtmlElement.xpath("/html/body/div[1]/div/div/main/div[1]/div/div[2]/div/div/form/div[4]/div[1]/div[1]/label")
         submit_button = HtmlElement.xpath('/html/body/div[1]/div/div/main/div[1]/div/div[2]/div/div/form/button')
+        
+        mail_input = HtmlElement.xpath('/html/body/div/div/div/main/div[1]/div/div/div/div/form/div[1]/div[1]/input')
+        password_input = HtmlElement.xpath('/html/body/div/div/div/main/div[1]/div/div/div/div/form/div[2]/div[1]/div/input')
+        signup_button = HtmlElement.xpath('/html/body/div/div/div/main/div[1]/div/div/div/div/form/button')
 
         for label, selector in {
             "genero": gender_button,
@@ -92,7 +96,18 @@ class AllfeelloveAuto:
         result = self.automation.safe_click(submit_button)
         print(f"[allfeellove_auto] Resultado click enviar: {result}")
 
+        self.driver.page.wait_for_load_state("domcontentloaded", timeout=self.driver.timeout)
 
+        result = self.automation.human_type(mail_input, "thompsom@example.com")
+        print(f"[allfeellove_auto] Verificando existencia de input de mail: {result}")
+
+        result = self.automation.human_type(password_input, "password123")
+        print(f"[allfeellove_auto] Verificando existencia de input de password: {result}")
+
+        result = self.automation.safe_click(signup_button)
+        print(f"[allfeellove_auto] Verificando existencia de botón de signup: {result}")
+
+        
 def run_allfeellove_auto(driver: CamoufoxHandler) -> None:
     """Wrapper para ejecutar el algoritmo personalizado."""
     algorithm = AllfeelloveAuto(driver)
