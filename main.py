@@ -10,7 +10,7 @@ def main():
     PLANTILLA_PERFIL = "templates/perfil_base.tar.gz"
 
     driver = CamoufoxHandler(
-        proxy_server="socks5://127.0.0.1:9050",
+        tor_proxy="socks5://127.0.0.1:9050",
         profile_template=PLANTILLA_PERFIL,  # Extrae en /tmp y limpia al cerrar
         headless=False
     )

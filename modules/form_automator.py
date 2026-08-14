@@ -16,30 +16,30 @@ class FormAutomator:
         min_delay: int = 50,
         max_delay: int = 120
     ) -> bool:
-    try:
-        logging.info(f"Typing into element with selector: {selector}")
+        try:
+            logging.info(f"Typing into element with selector: {selector}")
 
-        element = self.page.query_selector(selector, state="visible",timeout=5000)
-        if not element:
-            logging.error(f"Element with selector '{selector}' not found or not visible.")
+            element = self.page.query_selector(selector, state="visible", timeout=5000)
+            if not element:
+                logging.error(f"Element with selector '{selector}' not found or not visible.")
+                return False
+
+            element.scroll_into_view_if_needed()
+            element.click()
+
+            if clear_first:
+                self.page.keyboard.press("Control+A")
+                self.page.keyboard.press("Backspace")
+
+            for char in text:
+                element.type(char, delay=random.randint(min_delay, max_delay))
+
+            logging.info(f"Successfully typed into element with selector: {selector}")
+            return True
+
+        except PlaywrightError as e:
+            logging.error(f"Playwright error while typing into element with selector '{selector}': {e}")
             return False
-        
-        element.scroll_into_view_if_needed()
-        element.click()
-
-        if clear_first:
-            self.page.keyboard.press("Control+A")
-            self.page.keyboard.press("Backspace")
-
-        for char in text:
-            element.type(char, delay=random.randint(min_delay, max_delay))
-
-        logging.info(f"Successfully typed into element with selector: {selector}")
-        return True
-
-    except PlaywrightError as e:
-        logging.error(f"Playwright error while typing into element with selector '{selector}': {e}")
-        return False
 
     def safe_click(self, selector: str, timeout: int = 5000) -> bool:
         try:

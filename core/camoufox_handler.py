@@ -1,4 +1,4 @@
-import sys 
+import sys
 import logging
 import shutil
 import tarfile
@@ -6,7 +6,7 @@ import tempfile
 from pathlib import Path
 from typing import Optional
 from camoufox.sync_api import Camoufox
-from playwright.async_api import error as PlaywrightError, Page, BrowserContext
+from playwright.async_api import Error as PlaywrightError, Page, BrowserContext
 
 logging.basicConfig(
     level=logging.INFO,
@@ -18,13 +18,16 @@ logging.basicConfig(
 class CamoufoxHandler:
     def __init__(
         self,
-        tor_proxy: str = "socks5://127.0.0.1:9050",
+        proxy_server: Optional[str] = None,
+        tor_proxy: Optional[str] = None,
         profile_template: Optional[str] = None,
         headless: bool = True,
         timeout: int = 30
-        ):
+    ):
 
-        self.tor_proxy = tor_proxy
+        resolved_proxy = proxy_server or tor_proxy or "socks5://127.0.0.1:9050"
+        self.proxy_server = resolved_proxy
+        self.tor_proxy = resolved_proxy
         self.profile_template = profile_template
         self.headless = headless
         self.timeout = timeout
@@ -33,6 +36,7 @@ class CamoufoxHandler:
         self.page: Optional[Page] = None
         self.temp_dir: Optional[Path] = None
         self._camoufox_cm = None
+        self._camoufox_instance = None
     
     def _prepare_profile(self) -> Optional[str]:
         if not self.profile_template:
