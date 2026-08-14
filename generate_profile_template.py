@@ -46,10 +46,11 @@ def build_profile_template() -> Path:
     )
 
     try:
-        with browser:
-            page = browser.new_page()
-            page.goto("https://example.com", wait_until="domcontentloaded")
-            page.wait_for_timeout(2000)
+        with browser as browser_context:
+            page = browser_context.new_page()
+            page.goto("about:blank", wait_until="domcontentloaded")
+            page.wait_for_timeout(1000)
+            page.close()
     finally:
         pass
 
