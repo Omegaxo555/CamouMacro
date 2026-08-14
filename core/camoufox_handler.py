@@ -24,7 +24,7 @@ class CamoufoxHandler:
         profile_template: Optional[str] = None,
         headless: bool = True,
         timeout: int = 30,
-        window_size: Optional[tuple[int, int]] = (600, 900),
+        window_size: Optional[tuple[int, int]] = (400, 600),
     ):
 
         resolved_proxy = proxy_server or tor_proxy or "socks5://127.0.0.1:9050"
@@ -33,7 +33,7 @@ class CamoufoxHandler:
         self.profile_template = profile_template
         self.headless = headless
         self.timeout = timeout
-        self.window_size = window_size or (600, 900)
+        self.window_size = window_size or (400, 600)
 
         self.browser_context: Optional[BrowserContext] = None
         self.page: Optional[Page] = None
