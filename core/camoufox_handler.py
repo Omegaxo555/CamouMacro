@@ -114,6 +114,12 @@ class CamoufoxHandler:
             context = self._camoufox_instance.__enter__()
             self.browser_context = context
 
+            try:
+                self.browser_context.grant_permissions(["notifications"], origin="https://allfeellove.com")
+                logging.info("Permisos de notificaciones bloqueados para https://allfeellove.com")
+            except Exception as exc:
+                logging.warning(f"No se pudieron bloquear notificaciones en el contexto: {exc}")
+
             if hasattr(context, "pages"):
                 pages = getattr(context, "pages")
                 if pages:
