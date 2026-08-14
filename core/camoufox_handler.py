@@ -104,7 +104,12 @@ class CamoufoxHandler:
                 camoufox_kwargs["user_data_dir"] = user_data_path
 
             self._camoufox_instance = Camoufox(**camoufox_kwargs)
-            self.page = self._camoufox_instance.__enter__()
+            context = self._camoufox_instance.__enter__()
+            if hasattr(context, "new_page"):
+                self.browser_context = context
+                self.page = context.new_page()
+            else:
+                self.page = context
             self.page.set_default_timeout(self.timeout)
 
             logging.info("CamoufoxDriver inicializado exitosamente.")
@@ -130,17 +135,17 @@ class CamoufoxHandler:
             try:
                 logging.info(f"Navegando a {url} (Intento {attempt}/{max_retries})...")
                 response = self.page.goto(url, wait_until="domcontentloaded")
-                
+
                 if response and response.ok:
                     logging.info(f"Página cargada con éxito: {url} [{response.status}]")
                     return True
-                
+
                 status = response.status if response else "Sin Respuesta"
                 logging.warning(f"Estado de respuesta no óptimo: {status}")
 
             except PlaywrightError as e:
                 logging.warning(f"Error temporal de red en el intento {attempt}: {e}")
-            
+
         logging.error(f"Imposible conectar a {url} tras {max_retries} intentos.")
         return False
 
