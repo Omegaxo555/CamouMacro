@@ -1,6 +1,7 @@
 import sys
 import logging
 import shutil
+import socket
 import tarfile
 import tempfile
 from pathlib import Path
@@ -62,25 +63,41 @@ class CamoufoxHandler:
 
         return str(self.temp_dir)
 
+    @staticmethod
+    def is_tor_available(host: str = "127.0.0.1", port: int = 9050) -> bool:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(1)
+        try:
+            sock.connect((host, port))
+            return True
+        except OSError:
+            return False
+        finally:
+            sock.close()
+
     def initialize(self) -> bool:
         """
         Inicializa la sesión de Camoufox con el perfil preparado en RAM
-        y la configuración de red Tor.
+        y la configuración de red Tor solo si está disponible.
         """
         try:
-            # 1. Preparar el directorio de datos de usuario en /tmp si aplica
             user_data_path = self._prepare_profile()
 
-            logging.info("Inicializando motor Camoufox sobre Tor...")
-            
-            # 2. Configurar el inicializador de Camoufox
+            tor_available = self.is_tor_available()
+            if tor_available:
+                logging.info("Inicializando motor Camoufox sobre Tor...")
+            else:
+                logging.warning("Tor no está disponible en 127.0.0.1:9050. Iniciando Camoufox sin proxy.")
+
             camoufox_kwargs = {
-                "proxy": {"server": self.proxy_server},
                 "headless": self.headless,
                 "humanize": True,
                 "os": "linux",
-                "geoip": True,
+                "geoip": tor_available,
             }
+
+            if tor_available and self.proxy_server:
+                camoufox_kwargs["proxy"] = {"server": self.proxy_server}
 
             if user_data_path:
                 camoufox_kwargs["persistent_context"] = True
@@ -89,7 +106,7 @@ class CamoufoxHandler:
             self._camoufox_instance = Camoufox(**camoufox_kwargs)
             self.page = self._camoufox_instance.__enter__()
             self.page.set_default_timeout(self.timeout)
-            
+
             logging.info("CamoufoxDriver inicializado exitosamente.")
             return True
 
