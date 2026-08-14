@@ -169,25 +169,22 @@ class BrowserAutomation:
             locator = self.locator(selector, timeout_value)
             locator.wait_for(state="visible", timeout=timeout_value)
 
+            # Playwright ya hace el scroll necesario antes del click.
+            # No hacer scroll manual ni hover aquí porque eso dispara más
+            # movimientos del viewport y puede repetir la acción varias veces.
             try:
-                box = locator.bounding_box()
-                if box:
-                    viewport = self.page.viewport_size or {"width": 1280, "height": 720}
-                    in_viewport = (
-                        box["y"] >= 0 and box["y"] + box["height"] <= viewport["height"] and
-                        box["x"] >= 0 and box["x"] + box["width"] <= viewport["width"]
-                    )
-                    if not in_viewport:
-                        self._debug(f"El elemento no está visible en el viewport; desplazando solo una vez.")
-                        locator.scroll_into_view_if_needed()
+                locator.click(force=force, click_count=click_count)
+                self._debug(f"Click exitoso en '{resolved}'")
+                return True
             except PlaywrightError:
-                pass
-
-            locator.hover()
-            time.sleep(random.uniform(0.08, 0.2))
-            locator.click(force=force, click_count=click_count)
-            self._debug(f"Click exitoso en '{resolved}'")
-            return True
+                # Fallback conservador: un click por JS si el navegador bloquea
+                # el click standard por overlay o intercepciones visuales.
+                element = locator.element_handle()
+                if element is None:
+                    raise
+                self.page.evaluate("(el) => el.click()", element)
+                self._debug(f"Click por fallback JS exitoso en '{resolved}'")
+                return True
         except PlaywrightError as exc:
             self._debug(f"Fallo al hacer click en '{resolved}': {exc}")
             return False
