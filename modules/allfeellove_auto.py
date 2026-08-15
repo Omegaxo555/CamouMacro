@@ -553,6 +553,7 @@ class AllfeelloveAuto:
             print(f"[allfeellove_auto] No se pudo abrir el perfil: {exc}")
             return
 
+        self.driver.page.wait_for_timeout(1000)
         for _ in range(10):
             triggered_like = False
             triggered_wink = False
@@ -645,7 +646,7 @@ class AllfeelloveAuto:
                         textarea.click(force=True)
                         self.driver.page.keyboard.press("Control+A")
                         self.driver.page.keyboard.press("Backspace")
-                        self.driver.page.keyboard.type(message, delay=250)
+                        self.driver.page.keyboard.type(message)
                         self.driver.page.wait_for_timeout(250)
 
                         for candidate in send_candidates:
