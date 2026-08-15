@@ -394,20 +394,11 @@ class AllfeelloveAuto:
         return None, None, None
 
     def _interact_with_found_profile(self, card_locator) -> None:
-        like_selector = 'button[data-test-id="file:search-profile click:like-profile"]'
         view_profile_selector = 'button[data-test-id="cmp:ui-button click:go-to-profile-via-button"]'
+        like_selector = 'button[data-test-id="cmp:ui-button click:on-like"]'
         wink_selector = 'button[data-test-id="cmp:ui-button click:on-wink"]'
         textarea_selector = 'textarea[data-test-id="cmp:ui-textarea message type-your-message"]'
         send_selector = 'button[data-test-id="cmp:ui-button click:send-message send"]'
-
-        try:
-            like_target = card_locator.locator(like_selector)
-            if like_target.count() > 0:
-                like_target.first.wait_for(state="visible", timeout=15000)
-                like_target.first.click()
-                print(f"[allfeellove_auto] Like enviado a '{self.last_found_profile_name}'.")
-        except Exception as exc:
-            print(f"[allfeellove_auto] No se pudo dar Like: {exc}")
 
         try:
             view_button = card_locator.locator(view_profile_selector)
@@ -427,9 +418,20 @@ class AllfeelloveAuto:
             return
 
         try:
-            self.automation.wait_for_visible(wink_selector, timeout=15000)
-            self.automation.safe_click(wink_selector)
-            print(f"[allfeellove_auto] Wink enviado a '{self.last_found_profile_name}'.")
+            like_button = self.driver.page.locator(like_selector)
+            if like_button.count() > 0:
+                like_button.first.wait_for(state="visible", timeout=15000)
+                like_button.first.click()
+                print(f"[allfeellove_auto] Like enviado a '{self.last_found_profile_name}'.")
+        except Exception as exc:
+            print(f"[allfeellove_auto] No se pudo dar Like: {exc}")
+
+        try:
+            wink_button = self.driver.page.locator(wink_selector)
+            if wink_button.count() > 0:
+                wink_button.first.wait_for(state="visible", timeout=15000)
+                wink_button.first.click()
+                print(f"[allfeellove_auto] Wink enviado a '{self.last_found_profile_name}'.")
         except Exception as exc:
             print(f"[allfeellove_auto] No se pudo enviar wink: {exc}")
 
