@@ -403,15 +403,18 @@ class AllfeelloveAuto:
         try:
             like_target = card_locator.locator(like_selector)
             if like_target.count() > 0:
-                self.automation.wait_for_visible(like_target, timeout=15000)
-                like_target.click()
+                like_target.first.wait_for(state="visible", timeout=15000)
+                like_target.first.click()
                 print(f"[allfeellove_auto] Like enviado a '{self.last_found_profile_name}'.")
         except Exception as exc:
             print(f"[allfeellove_auto] No se pudo dar Like: {exc}")
 
         try:
-            self.automation.wait_for_visible(view_profile_selector, timeout=15000)
-            self.automation.safe_click(view_profile_selector)
+            view_button = card_locator.locator(view_profile_selector)
+            if view_button.count() == 0:
+                view_button = self.driver.page.locator(view_profile_selector).first
+            view_button.wait_for(state="visible", timeout=15000)
+            view_button.click()
             print(f"[allfeellove_auto] Se abrió el perfil de '{self.last_found_profile_name}'.")
         except Exception as exc:
             print(f"[allfeellove_auto] No se pudo abrir el perfil: {exc}")
