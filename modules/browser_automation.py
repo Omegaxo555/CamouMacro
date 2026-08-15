@@ -231,7 +231,7 @@ class BrowserAutomation:
     ) -> bool:
         """Selecciona una opción dentro de un multiselect Vue/Allfeellove con tiempos mínimos."""
         timeout_value = timeout or self.default_timeout
-        short_timeout = min(timeout_value, 2000)
+        short_timeout = min(timeout_value, 500)
         container_ref = str(container_selector)
         is_country_multiselect = "country" in container_ref.lower() or "select-country" in container_ref.lower()
 
