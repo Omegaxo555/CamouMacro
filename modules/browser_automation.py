@@ -234,11 +234,6 @@ class BrowserAutomation:
         short_timeout = min(timeout_value, 4000)
         try:
             container = self.locator(container_selector, short_timeout)
-            try:
-                if not container.is_visible():
-                    container.wait_for(state="visible", timeout=min(short_timeout, 3000))
-            except PlaywrightError:
-                pass
 
             try:
                 selected_text = container.locator("span.multiselect__single").text_content()
@@ -248,21 +243,24 @@ class BrowserAutomation:
                 pass
 
             try:
-                container.click()
+                if container.is_visible():
+                    container.click()
+                else:
+                    self.page.locator(self.resolve_selector(container_selector)).first.click()
             except PlaywrightError:
                 try:
-                    container.locator(".ui-select_icon").click()
+                    self.page.locator(f"{self.resolve_selector(container_selector)} .ui-select_icon").click()
                 except PlaywrightError:
                     pass
 
             if search_selector is not None:
                 try:
                     search_box = self.locator(search_selector, short_timeout)
-                    search_box.wait_for(state="visible", timeout=short_timeout)
-                    search_box.fill("")
-                    search_box.press("Control+A")
-                    search_box.fill(option_text)
-                    time.sleep(random.uniform(0.06, 0.18))
+                    if search_box.count() > 0:
+                        search_box.first.fill("")
+                        search_box.first.press("Control+A")
+                        search_box.first.fill(option_text)
+                        time.sleep(random.uniform(0.06, 0.18))
                 except PlaywrightError:
                     pass
 
@@ -278,9 +276,9 @@ class BrowserAutomation:
             for selector in candidate_selectors:
                 try:
                     candidate = self.page.locator(selector).first
-                    candidate.wait_for(state="visible", timeout=short_timeout)
-                    candidate.click()
-                    return True
+                    if candidate.is_visible():
+                        candidate.click()
+                        return True
                 except PlaywrightError:
                     continue
 
@@ -295,11 +293,13 @@ class BrowserAutomation:
 
             try:
                 option = self.page.get_by_text(option_text, exact=False).first
-                option.wait_for(state="visible", timeout=short_timeout)
-                option.click()
-                return True
+                if option.is_visible():
+                    option.click()
+                    return True
             except PlaywrightError:
-                return False
+                pass
+
+            return False
         except PlaywrightError:
             return False
 
