@@ -5,6 +5,7 @@ import shutil
 import socket
 import subprocess
 import sys
+import tempfile
 import time
 import traceback
 from pathlib import Path
@@ -66,10 +67,24 @@ def start_tor_background(port: int = 9050) -> subprocess.Popen | None:
         print(f"{TerminalUI.ANSI['fg_red']}[tor]{TerminalUI.ANSI['reset']} No se encontró 'tor' ni 'tor.exe' en el sistema.")
         return None
 
+    data_dir = Path(tempfile.gettempdir()) / f"camoumacro_tor_{port}"
+    data_dir.mkdir(parents=True, exist_ok=True)
+    config_path = data_dir / "torrc"
+    config_path.write_text(
+        "\n".join([
+            f"SocksPort 127.0.0.1:{port}",
+            f"ControlPort 127.0.0.1:{port + 1}",
+            f"DataDirectory {data_dir}",
+            "Log notice stdout",
+            "AvoidDiskWrites 1",
+        ]),
+        encoding="utf-8",
+    )
+
     try:
         if os.name == "nt":
             TOR_PROCESS = subprocess.Popen(
-                [tor_path],
+                [tor_path, "-f", str(config_path)],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 creationflags=subprocess.CREATE_NEW_CONSOLE,
@@ -77,7 +92,7 @@ def start_tor_background(port: int = 9050) -> subprocess.Popen | None:
             )
         else:
             TOR_PROCESS = subprocess.Popen(
-                [tor_path],
+                [tor_path, "-f", str(config_path)],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 start_new_session=True,

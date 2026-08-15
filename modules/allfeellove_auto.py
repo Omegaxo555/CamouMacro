@@ -406,45 +406,67 @@ class AllfeelloveAuto:
     def _ensure_chat_mode(self) -> bool:
         """Espera a que el perfil se renderice y luego alterna Mail -> Chat si corresponde."""
         try:
-            textarea_ready = self.driver.page.locator('textarea[data-test-id="cmp:ui-textarea message type-your-message"]')
-            if textarea_ready.count() > 0 and textarea_ready.first.is_visible():
-                print("[allfeellove_auto] Ya está en modo Chat.")
-                return True
-
-            switch_selectors = [
-                'button[data-test-id="cmp:ui-button click:is-chat-visible-true change-to-chat"]',
-                'button:has-text("Change to chat")',
-                'button[data-test-id*="change-to-chat"]',
-                'button:has-text("SwitchMode")',
+            selectors = [
+                'textarea[data-test-id="cmp:ui-textarea message type-your-message"]',
+                'textarea[placeholder*="Type your message"]',
+                'textarea#form-textarea',
             ]
 
-            for attempt in range(8):
+            for selector in selectors:
+                textarea = self.driver.page.locator(selector).first
                 try:
-                    for selector in switch_selectors:
-                        button = self.driver.page.locator(selector).first
-                        if button.count() > 0 and button.is_visible():
-                            print("[allfeellove_auto] Detectado modo Mail. Cambiando a Chat...")
-                            button.click()
-                            self.driver.page.wait_for_timeout(350)
-                            if textarea_ready.count() > 0 and textarea_ready.first.is_visible():
-                                return True
-                            return True
+                    if textarea.count() > 0 and textarea.is_visible():
+                        print("[allfeellove_auto] Ya está en modo Chat.")
+                        return True
                 except Exception:
                     pass
 
-                mail_label = self.driver.page.get_by_text("Mail", exact=False)
-                if mail_label.count() > 0:
+            switch_selectors = [
+                'button[data-test-id="cmp:ui-button click:is-chat-visible-true change-to-chat"]',
+                'button[data-test-id*="change-to-chat"]',
+                'button:has-text("Change to chat")',
+                'button:has-text("SwitchMode")',
+                'button:has-text("Chat")',
+                'button[data-test-id*="chat"]',
+            ]
+
+            for attempt in range(10):
+                for selector in selectors:
                     try:
-                        if mail_label.first.is_visible():
-                            print("[allfeellove_auto] Vista en Mail detectada por el label del sitio.")
-                            for selector in switch_selectors:
-                                button = self.driver.page.locator(selector).first
-                                if button.count() > 0 and button.is_visible():
-                                    button.click()
-                                    self.driver.page.wait_for_timeout(350)
-                                    return True
+                        textarea = self.driver.page.locator(selector).first
+                        if textarea.count() > 0 and textarea.is_visible():
+                            print("[allfeellove_auto] El textarea de chat está visible.")
+                            return True
                     except Exception:
                         pass
+
+                clicked_any = False
+                for selector in switch_selectors:
+                    try:
+                        button = self.driver.page.locator(selector).first
+                        if button.count() > 0 and button.is_visible():
+                            print("[allfeellove_auto] Detectado modo Mail. Cambiando a Chat...")
+                            button.click(force=True)
+                            clicked_any = True
+                            break
+                    except Exception:
+                        pass
+                if clicked_any:
+                    self.driver.page.wait_for_timeout(700)
+                    continue
+
+                mail_label = self.driver.page.get_by_text("Mail", exact=False)
+                if mail_label.count() > 0 and mail_label.first.is_visible():
+                    print("[allfeellove_auto] Vista en Mail detectada por el label del sitio.")
+                    for selector in switch_selectors:
+                        try:
+                            button = self.driver.page.locator(selector).first
+                            if button.count() > 0:
+                                button.click(force=True)
+                                self.driver.page.wait_for_timeout(700)
+                                break
+                        except Exception:
+                            pass
 
                 self.driver.page.wait_for_timeout(250)
 
@@ -454,30 +476,50 @@ class AllfeelloveAuto:
             return False
 
     def _send_sticker_batch(self, sticker_count: int = 3) -> None:
-        toggle_selector = 'button[data-test-id="click:toggle-sticker-box"]'
+        toggle_selectors = [
+            'button[data-test-id="click:toggle-sticker-box"]',
+            'button[data-test-id*="toggle-sticker"]',
+            'button:has-text("Stickers")',
+        ]
         sticker_selector = 'div[data-test-id*="click:on-send-sticker-sticker"]'
 
-        try:
-            toggle_button = self.driver.page.locator(toggle_selector).first
-            if toggle_button.count() > 0:
-                if toggle_button.is_visible():
-                    toggle_button.click(force=True)
-                else:
+        opened = False
+        for selector in toggle_selectors:
+            try:
+                toggle_button = self.driver.page.locator(selector).first
+                if toggle_button.count() > 0:
+                    toggle_button.wait_for(state="visible", timeout=8000)
                     toggle_button.scroll_into_view_if_needed()
                     toggle_button.click(force=True)
-                self.driver.page.wait_for_timeout(500)
-        except Exception:
-            pass
+                    opened = True
+                    self.driver.page.wait_for_timeout(700)
+                    break
+            except Exception:
+                pass
+
+        if not opened:
+            print("[allfeellove_auto] No se encontró el botón de stickers.")
+            return
 
         try:
             sticker_items = self.driver.page.locator(sticker_selector)
-            max_to_click = min(sticker_count, max(1, sticker_items.count()))
-            for index in range(max_to_click):
+            self.driver.page.wait_for_timeout(400)
+            total_items = sticker_items.count()
+            if total_items == 0:
+                print("[allfeellove_auto] No hay stickers visibles en la caja.")
+                return
+
+            target_count = min(max(1, sticker_count), total_items)
+            for index in range(target_count):
                 item = sticker_items.nth(index)
-                if item.is_visible():
+                try:
+                    item.wait_for(state="visible", timeout=5000)
+                    item.scroll_into_view_if_needed()
                     item.click(force=True)
-                    self.driver.page.wait_for_timeout(250)
-            print(f"[allfeellove_auto] Se enviaron {max_to_click} stickers.")
+                    self.driver.page.wait_for_timeout(300)
+                except Exception:
+                    continue
+            print(f"[allfeellove_auto] Se enviaron {target_count} stickers.")
         except Exception as exc:
             print(f"[allfeellove_auto] Error al enviar stickers: {exc}")
 
@@ -523,16 +565,15 @@ class AllfeelloveAuto:
 
                     for index in range(like_button.count()):
                         candidate = like_button.nth(index)
-                        if candidate.is_visible():
-                            try:
+                        try:
+                            candidate.wait_for(state="visible", timeout=3000)
+                            if candidate.is_visible():
                                 candidate.click(force=True)
-                            except Exception:
-                                handle = candidate.element_handle()
-                                if handle is not None:
-                                    self.driver.page.evaluate("(el) => el.click()", handle)
-                            print(f"[allfeellove_auto] Like enviado a '{self.last_found_profile_name}'.")
-                            triggered_like = True
-                            break
+                                print(f"[allfeellove_auto] Like enviado a '{self.last_found_profile_name}'.")
+                                triggered_like = True
+                                break
+                        except Exception:
+                            continue
                     if triggered_like:
                         break
                 except Exception:
@@ -549,16 +590,15 @@ class AllfeelloveAuto:
 
                     for index in range(wink_button.count()):
                         candidate = wink_button.nth(index)
-                        if candidate.is_visible():
-                            try:
+                        try:
+                            candidate.wait_for(state="visible", timeout=3000)
+                            if candidate.is_visible():
                                 candidate.click(force=True)
-                            except Exception:
-                                handle = candidate.element_handle()
-                                if handle is not None:
-                                    self.driver.page.evaluate("(el) => el.click()", handle)
-                            print(f"[allfeellove_auto] Wink enviado a '{self.last_found_profile_name}'.")
-                            triggered_wink = True
-                            break
+                                print(f"[allfeellove_auto] Wink enviado a '{self.last_found_profile_name}'.")
+                                triggered_wink = True
+                                break
+                        except Exception:
+                            continue
                     if triggered_wink:
                         break
                 except Exception:
@@ -588,23 +628,42 @@ class AllfeelloveAuto:
             tone=tone,
         )
 
-        textarea = self.driver.page.locator(textarea_selector).first
-        send_button = self.driver.page.locator(send_selector).first
+        send_candidates = [
+            send_selector,
+            'button[data-test-id*="send-message"]',
+            'button:has-text("Send")',
+            'button >> text=Send',
+        ]
 
         for index, message in enumerate(messages, start=1):
-            try:
-                textarea.wait_for(state="visible", timeout=10000)
-                textarea.click()
-                textarea.fill("")
-                textarea.type(message, delay=250)
-                self.driver.page.wait_for_timeout(250)
-                if send_button.count() > 0 and send_button.is_visible():
-                    send_button.click(force=True)
-                else:
-                    self.automation.safe_click(send_selector)
-                print(f"[allfeellove_auto] Mensaje {index}/4 enviado: {message}")
-            except Exception as exc:
-                print(f"[allfeellove_auto] Error al enviar mensaje {index}/4: {exc}")
+            sent = False
+            for _ in range(6):
+                try:
+                    textarea = self.driver.page.locator(textarea_selector).first
+                    if textarea.count() > 0:
+                        textarea.wait_for(state="visible", timeout=5000)
+                        textarea.click(force=True)
+                        self.driver.page.keyboard.press("Control+A")
+                        self.driver.page.keyboard.press("Backspace")
+                        self.driver.page.keyboard.type(message, delay=250)
+                        self.driver.page.wait_for_timeout(250)
+
+                        for candidate in send_candidates:
+                            send_button = self.driver.page.locator(candidate).first
+                            if send_button.count() > 0 and send_button.is_visible():
+                                send_button.click(force=True)
+                                sent = True
+                                break
+
+                        if sent:
+                            print(f"[allfeellove_auto] Mensaje {index}/4 enviado: {message}")
+                            break
+                except Exception as exc:
+                    print(f"[allfeellove_auto] Reintento de mensaje {index}/4: {exc}")
+                    self.driver.page.wait_for_timeout(300)
+
+            if not sent:
+                print(f"[allfeellove_auto] Error al enviar mensaje {index}/4: no se pudo enviar.")
                 break
 
             if index < len(messages):
