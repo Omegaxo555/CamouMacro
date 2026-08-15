@@ -403,6 +403,34 @@ class AllfeelloveAuto:
                 return name_option, age_option, card
         return None, None, None
 
+    def _ensure_chat_mode(self) -> bool:
+        """Si el perfil está en modo Mail, cambia a Chat para continuar la conversación."""
+        try:
+            mail_label = self.driver.page.locator('#mail-title')
+            if mail_label.count() > 0:
+                title_text = (mail_label.first.text_content() or "").strip()
+                if title_text and title_text.lower() == "mail":
+                    switch_selector = 'button[data-test-id="cmp:ui-button click:is-chat-visible-true change-to-chat"], button:has-text("Change to chat")'
+                    switch_button = self.driver.page.locator(switch_selector).first
+                    if switch_button.count() > 0:
+                        self.driver.page.wait_for_timeout(500)
+                        if switch_button.is_visible():
+                            print("[allfeellove_auto] Detectado modo Mail. Cambiando a Chat...")
+                            switch_button.click()
+                            self.driver.page.wait_for_timeout(1500)
+                            return True
+                    return False
+
+            chat_label = self.driver.page.locator('p:has-text("Chat")')
+            if chat_label.count() > 0 and chat_label.first.is_visible():
+                print("[allfeellove_auto] Ya está en modo Chat.")
+                return True
+
+            return True
+        except Exception as exc:
+            print(f"[allfeellove_auto] No se pudo verificar el modo de chat: {exc}")
+            return True
+
     def _interact_with_found_profile(self, card_locator) -> None:
         view_profile_selector = 'button[data-test-id="cmp:ui-button click:go-to-profile-via-button"]'
         like_selector = 'button[data-test-id="cmp:ui-button click:on-like"]'
@@ -438,6 +466,10 @@ class AllfeelloveAuto:
                 print(f"[allfeellove_auto] Wink enviado a '{self.last_found_profile_name}'.")
         except Exception as exc:
             print(f"[allfeellove_auto] No se pudo enviar wink: {exc}")
+
+        if not self._ensure_chat_mode():
+            print("[allfeellove_auto] El modo Chat no se pudo activar; se cancela el flujo de mensajes.")
+            return
 
         try:
             self.driver.page.wait_for_selector(textarea_selector, state="visible", timeout=20000)
