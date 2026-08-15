@@ -404,7 +404,7 @@ class AllfeelloveAuto:
         return None, None, None
 
     def _ensure_chat_mode(self) -> bool:
-        """Convierte la vista de Mail a Chat usando el botón exacto del sitio."""
+        """Espera a que el perfil se renderice y luego alterna Mail -> Chat si corresponde."""
         try:
             textarea_ready = self.driver.page.locator('textarea[data-test-id="cmp:ui-textarea message type-your-message"]')
             if textarea_ready.count() > 0 and textarea_ready.first.is_visible():
@@ -414,40 +414,39 @@ class AllfeelloveAuto:
             switch_selectors = [
                 'button[data-test-id="cmp:ui-button click:is-chat-visible-true change-to-chat"]',
                 'button:has-text("Change to chat")',
-                'button:has-text("SwitchMode")',
-                'button >> text=Change to chat',
                 'button[data-test-id*="change-to-chat"]',
+                'button:has-text("SwitchMode")',
             ]
 
-            for selector in switch_selectors:
+            for attempt in range(8):
                 try:
-                    button = self.driver.page.locator(selector).first
-                    if button.count() > 0 and button.is_visible():
-                        print("[allfeellove_auto] Detectado modo Mail. Cambiando a Chat...")
-                        button.click()
-                        self.driver.page.wait_for_timeout(400)
-                        if textarea_ready.count() > 0 and textarea_ready.first.is_visible():
+                    for selector in switch_selectors:
+                        button = self.driver.page.locator(selector).first
+                        if button.count() > 0 and button.is_visible():
+                            print("[allfeellove_auto] Detectado modo Mail. Cambiando a Chat...")
+                            button.click()
+                            self.driver.page.wait_for_timeout(350)
+                            if textarea_ready.count() > 0 and textarea_ready.first.is_visible():
+                                return True
                             return True
-                        return True
                 except Exception:
-                    continue
+                    pass
 
-            mail_label = self.driver.page.locator('#mail-title, p:has-text("Mail"), text=Mail')
-            if mail_label.count() > 0:
-                for idx in range(min(mail_label.count(), 5)):
-                    text = (mail_label.nth(idx).text_content() or "").strip().lower()
-                    if "mail" in text:
-                        print("[allfeellove_auto] Vista en Mail detectada por el label del sitio.")
-                        for selector in switch_selectors:
-                            try:
+                mail_label = self.driver.page.get_by_text("Mail", exact=False)
+                if mail_label.count() > 0:
+                    try:
+                        if mail_label.first.is_visible():
+                            print("[allfeellove_auto] Vista en Mail detectada por el label del sitio.")
+                            for selector in switch_selectors:
                                 button = self.driver.page.locator(selector).first
                                 if button.count() > 0 and button.is_visible():
                                     button.click()
-                                    self.driver.page.wait_for_timeout(400)
+                                    self.driver.page.wait_for_timeout(350)
                                     return True
-                            except Exception:
-                                continue
-                        return False
+                    except Exception:
+                        pass
+
+                self.driver.page.wait_for_timeout(250)
 
             return False
         except Exception as exc:
@@ -467,6 +466,8 @@ class AllfeelloveAuto:
                 view_button = self.driver.page.locator(view_profile_selector).first
             view_button.wait_for(state="visible", timeout=8000)
             view_button.click()
+            self.driver.page.wait_for_load_state("domcontentloaded", timeout=10000)
+            self.driver.page.wait_for_timeout(700)
             print(f"[allfeellove_auto] Se abrió el perfil de '{self.last_found_profile_name}'.")
         except Exception as exc:
             print(f"[allfeellove_auto] No se pudo abrir el perfil: {exc}")
