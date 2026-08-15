@@ -190,6 +190,7 @@ class AllfeelloveAuto:
 
         result = self.automation.safe_click(filtersButton)
         print(f'[allfeellove_auto] Abriendo el apartado de filtros: {result}')
+        self.driver.page.wait_for_timeout(1000)
 
         result = self.automation.select_multiselect_option(
             countrySelect,
@@ -307,24 +308,21 @@ class AllfeelloveAuto:
 
     def _go_to_next_profile_page(self) -> bool:
         next_page_selector = 'button[data-test-id*="change-page-options-current-page"]'
-        next_button = self.driver.page.locator(next_page_selector)
 
-        if next_button.count() == 0:
-            return False
+        for attempt in range(1, 6):
+            try:
+                next_button = self.driver.page.locator(next_page_selector)
+                if next_button.count() > 0 and next_button.first.is_visible():
+                    self.driver.page.wait_for_timeout(3000)
+                    next_button.first.click()
+                    self.driver.page.wait_for_load_state("networkidle", timeout=self.driver.timeout)
+                    return True
+            except Exception:
+                pass
 
-        try:
-            if not next_button.first.is_visible():
-                return False
-        except Exception:
-            return False
+            self.driver.page.wait_for_timeout(1000)
 
-        self.driver.page.wait_for_timeout(3000)
-        try:
-            next_button.first.click()
-            self.driver.page.wait_for_load_state("networkidle", timeout=self.driver.timeout)
-            return True
-        except Exception:
-            return False
+        return False
 
     def _scan_profiles_until_found(self, target_name: str, max_pages: int = 25) -> bool:
         for page_index in range(1, max_pages + 1):
