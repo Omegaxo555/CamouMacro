@@ -232,6 +232,9 @@ class BrowserAutomation:
         """Selecciona una opción dentro de un multiselect Vue/Allfeellove."""
         timeout_value = timeout or self.default_timeout
         short_timeout = min(timeout_value, 4000)
+        container_ref = str(container_selector)
+        is_country_multiselect = "country" in container_ref.lower() or "select-country" in container_ref.lower()
+
         try:
             container = self.locator(container_selector, short_timeout)
 
@@ -250,6 +253,31 @@ class BrowserAutomation:
             except PlaywrightError:
                 try:
                     self.page.locator(f"{self.resolve_selector(container_selector)} .ui-select_icon").click()
+                except PlaywrightError:
+                    pass
+
+            if is_country_multiselect and search_selector is not None:
+                try:
+                    search_box = self.locator(search_selector, short_timeout)
+                    if search_box.count() > 0:
+                        search_box.first.wait_for(state="visible", timeout=short_timeout)
+                        search_box.first.fill(option_text)
+                        time.sleep(random.uniform(0.08, 0.18))
+
+                        option_candidates = self.page.locator("[role='option']")
+                        for index in range(min(option_candidates.count(), 8)):
+                            candidate = option_candidates.nth(index)
+                            try:
+                                candidate_text = candidate.text_content() or ""
+                            except Exception:
+                                candidate_text = ""
+                            if candidate_text and option_text.lower() in candidate_text.lower():
+                                candidate.click()
+                                return True
+
+                        search_box.first.press("ArrowDown")
+                        search_box.first.press("Enter")
+                        return True
                 except PlaywrightError:
                     pass
 

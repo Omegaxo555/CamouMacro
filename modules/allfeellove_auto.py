@@ -283,28 +283,42 @@ class AllfeelloveAuto:
         value = re.sub(r"[^a-z0-9]+", " ", value)
         return " ".join(value.split())
 
-    def _card_matches_target_profile(self, card_text: str, target_name: str, target_age: int) -> bool:
-        if not card_text:
+    def _extract_name_and_age_from_card(self, card_locator) -> tuple[str, int | None]:
+        try:
+            name_text = card_locator.locator('p[data-test-id*="person-name"], p.ui-typography.color.name, p.name').first.text_content() or ""
+        except Exception:
+            name_text = ""
+
+        try:
+            age_text = card_locator.locator('p[data-test-id*="person-display-age"], [data-test-id*="person-display-age"], p[data-test-id*="person age"]').first.text_content() or ""
+        except Exception:
+            age_text = ""
+
+        cleaned_name = self._normalise_text(name_text)
+        age_match = re.search(r"(\d{1,3})", age_text or "")
+        age_value = int(age_match.group(1)) if age_match else None
+        return cleaned_name, age_value
+
+    def _card_matches_target_profile(self, card_locator, target_name: str, target_age: int) -> bool:
+        if card_locator is None:
             return False
 
-        normalised_card = self._normalise_text(card_text)
+        try:
+            name_text, age_value = self._extract_name_and_age_from_card(card_locator)
+        except Exception:
+            return False
+
+        if not name_text:
+            return False
+
         normalised_name = self._normalise_text(target_name)
-        age_token = rf"(?<!\d){target_age}(?!\d)"
+        if name_text != normalised_name:
+            return False
 
-        name_match = re.search(rf"(?<![a-z]){re.escape(normalised_name)}(?![a-z])", normalised_card)
-        age_match = re.search(age_token, normalised_card)
+        if age_value is None:
+            return False
 
-        if name_match and age_match:
-            return True
-
-        if normalised_name and target_age:
-            pieces = normalised_card.split()
-            if normalised_name in pieces:
-                for idx, piece in enumerate(pieces):
-                    if piece == normalised_name and idx + 1 < len(pieces) and pieces[idx + 1].isdigit():
-                        return int(pieces[idx + 1]) == target_age
-
-        return False
+        return age_value == target_age
 
     def _find_profile_card_by_name(self, target_name: str, target_age: int = None):
         selectors = [
@@ -323,23 +337,32 @@ class AllfeelloveAuto:
 
             for index in range(count):
                 try:
-                    text = candidates.nth(index).text_content() or ""
+                    candidate = candidates.nth(index)
+                    if not candidate.is_visible():
+                        continue
                 except Exception:
                     continue
-                if not text:
+
+                card = None
+                try:
+                    card = candidate.locator("xpath=ancestor::div[contains(@class,'info-wrapper')][1]")
+                    if card.count() == 0:
+                        card = candidate.locator("xpath=ancestor::div[contains(@class,'info')][1]")
+                    if card.count() == 0:
+                        card = candidate.locator("..")
+                except Exception:
+                    card = None
+
+                if card is None or card.count() == 0:
                     continue
 
                 if target_age is not None:
-                    if self._card_matches_target_profile(text, target_name, target_age):
-                        try:
-                            return candidates.nth(index).locator("../..")
-                        except Exception:
-                            return candidates.nth(index).locator("..")
-                elif self._normalise_text(target_name) in self._normalise_text(text).split():
-                    try:
-                        return candidates.nth(index).locator("../..")
-                    except Exception:
-                        return candidates.nth(index).locator("..")
+                    if self._card_matches_target_profile(card, target_name, target_age):
+                        return card
+                else:
+                    name_text, _ = self._extract_name_and_age_from_card(card)
+                    if self._normalise_text(target_name) == name_text:
+                        return card
         return None
 
     def _has_profile_name(self, target_name: str, target_age: int = None) -> bool:
