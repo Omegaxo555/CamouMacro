@@ -174,6 +174,7 @@ class AllfeelloveAuto:
         #------------Busqueda de los perfiles-----------#
 
         accountSearch = HtmlElement.css('#AccountSearch')
+        allpeopleButton = HtmlElement.css('label.chip-root[data-test-id="file:extend-search click:change-online-filter-false all"]')
         filtersButton = HtmlElement.css('[data-test-id="file:extend-search click:show-filter filters"]')
 
         countrySelect = HtmlElement.css('div.multiselect[role="combobox"][data-test-id="cmp:ui-select search-country select-country"]')
@@ -192,6 +193,9 @@ class AllfeelloveAuto:
         print(f"[allfeellove_auto] Iniciando la busqueda del perfil, abriendo la seccion de busqueda: {result}")
         self.driver.page.wait_for_load_state("domcontentloaded", timeout=self.driver.timeout)
 
+        result = self.automation.safe_click(allpeopleButton)
+        print(f'[allfeellove_auto] Filtrando todos: {result}')
+
         result = self.automation.safe_click(filtersButton)
         print(f'[allfeellove_auto] Abriendo el apartado de filtros: {result}')
         self.driver.page.wait_for_timeout(100)
@@ -206,7 +210,7 @@ class AllfeelloveAuto:
 
         result = self.automation.select_multiselect_option(
             ageFromSelect,
-            "34",
+            "41",
             search_selector=ageFromInput,
             timeout=5000,
         )
@@ -214,7 +218,7 @@ class AllfeelloveAuto:
 
         result = self.automation.select_multiselect_option(
             ageToSelect,
-            "46",
+            "41",
             search_selector=ageToInput,
             timeout=5000,
         )
