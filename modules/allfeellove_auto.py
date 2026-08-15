@@ -492,7 +492,7 @@ class AllfeelloveAuto:
                     toggle_button.scroll_into_view_if_needed()
                     toggle_button.click(force=True)
                     opened = True
-                    self.driver.page.wait_for_timeout(700)
+                    self.driver.page.wait_for_timeout(500)
                     break
             except Exception:
                 pass
