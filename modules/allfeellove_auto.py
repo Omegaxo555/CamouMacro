@@ -195,6 +195,7 @@ class AllfeelloveAuto:
 
         result = self.automation.safe_click(allpeopleButton)
         print(f'[allfeellove_auto] Filtrando todos: {result}')
+        self.driver.page.wait_for_timeout(1000)
 
         result = self.automation.safe_click(filtersButton)
         print(f'[allfeellove_auto] Abriendo el apartado de filtros: {result}')
@@ -356,11 +357,18 @@ class AllfeelloveAuto:
 
                 card = None
                 try:
-                    card = candidate.locator("xpath=ancestor::div[contains(@class,'info-wrapper')][1]")
-                    if card.count() == 0:
-                        card = candidate.locator("xpath=ancestor::div[contains(@class,'info')][1]")
-                    if card.count() == 0:
-                        card = candidate.locator("..")
+                    search_items = self.driver.page.locator('[data-test-id*="search-item"],[data-test-id*="file:search-item"]')
+                    matches = search_items.filter(has=candidate)
+                    if matches.count() > 0:
+                        card = matches.first
+                    else:
+                        card = candidate.locator("xpath=ancestor::*[contains(@data-test-id,'search-item')][1]")
+                        if card.count() == 0:
+                            card = candidate.locator("xpath=ancestor::*[contains(@class,'info-wrapper')][1]")
+                        if card.count() == 0:
+                            card = candidate.locator("xpath=ancestor::*[contains(@class,'info')][1]")
+                        if card.count() == 0:
+                            card = candidate.locator("xpath=ancestor::*[self::div or self::article or self::section][1]")
                 except Exception:
                     card = None
 
