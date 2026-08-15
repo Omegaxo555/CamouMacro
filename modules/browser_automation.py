@@ -45,24 +45,10 @@ class BrowserAutomation:
     validaciones y waits controlados.
     """
 
-    def __init__(self, page: Page, default_timeout: int = 3000, debug: bool = True):
+    def __init__(self, page: Page, default_timeout: int = 10000, debug: bool = True):
         self.page = page
         self.default_timeout = default_timeout
         self.debug = debug
-
-    def _move_mouse_to_locator(self, locator: Locator) -> bool:
-        """Mueve el cursor directamente al centro del elemento sin forzar largos waits."""
-        try:
-            box = locator.bounding_box()
-            if not box:
-                return False
-            x = box["x"] + (box["width"] / 2)
-            y = box["y"] + (box["height"] / 2)
-            self.page.mouse.move(x, y, steps=12)
-            time.sleep(random.uniform(0.04, 0.12))
-            return True
-        except PlaywrightError:
-            return False
 
     def _debug(self, message: str) -> None:
         if self.debug:
@@ -181,31 +167,11 @@ class BrowserAutomation:
 
         try:
             locator = self.locator(selector, timeout_value)
-            if locator.count() == 0:
-                self._debug(f"No hay elementos para '{resolved}'")
-                return False
+            locator.wait_for(state="visible", timeout=timeout_value)
 
-            # Evitar waits largos antes del movimiento del cursor. Cuando el elemento ya
-            # está visible, avanzamos de inmediato y movemos el mouse al centro.
-            try:
-                if not locator.is_visible():
-                    locator.scroll_into_view_if_needed()
-                    time.sleep(random.uniform(0.05, 0.15))
-            except PlaywrightError:
-                pass
-
-            # Mover el cursor directamente al punto objetivo reduce la pausa artificial
-            # y hace la acción más humana sin esperar 10 segundos por un timeout.
-            if self._move_mouse_to_locator(locator):
-                try:
-                    x = locator.bounding_box()["x"] + (locator.bounding_box()["width"] / 2)
-                    y = locator.bounding_box()["y"] + (locator.bounding_box()["height"] / 2)
-                    self.page.mouse.click(x, y, button="left", click_count=click_count)
-                    self._debug(f"Click exitoso en '{resolved}' via mouse move")
-                    return True
-                except PlaywrightError:
-                    pass
-
+            # Playwright ya hace el scroll necesario antes del click.
+            # No hacer scroll manual ni hover aquí porque eso dispara más
+            # movimientos del viewport y puede repetir la acción varias veces.
             try:
                 locator.click(force=force, click_count=click_count)
                 self._debug(f"Click exitoso en '{resolved}'")
@@ -265,9 +231,10 @@ class BrowserAutomation:
     ) -> bool:
         """Selecciona una opción dentro de un multiselect Vue/Allfeellove."""
         timeout_value = timeout or self.default_timeout
+        short_timeout = min(timeout_value, 4000)
         try:
-            container = self.locator(container_selector, timeout_value)
-            container.wait_for(state="visible", timeout=timeout_value)
+            container = self.locator(container_selector, short_timeout)
+            container.wait_for(state="visible", timeout=short_timeout)
 
             try:
                 selected_text = container.locator("span.multiselect__single").text_content()
@@ -276,7 +243,6 @@ class BrowserAutomation:
             except Exception:
                 pass
 
-            # 1) abrir el dropdown
             try:
                 container.click()
             except PlaywrightError:
@@ -285,19 +251,17 @@ class BrowserAutomation:
                 except PlaywrightError:
                     pass
 
-            # 2) si existe un input interno de búsqueda, escribir allí
             if search_selector is not None:
                 try:
-                    search_box = self.locator(search_selector, timeout_value)
-                    search_box.wait_for(state="visible", timeout=timeout_value)
+                    search_box = self.locator(search_selector, short_timeout)
+                    search_box.wait_for(state="visible", timeout=short_timeout)
                     search_box.fill("")
                     search_box.press("Control+A")
                     search_box.fill(option_text)
-                    time.sleep(random.uniform(0.2, 0.5))
+                    time.sleep(random.uniform(0.06, 0.18))
                 except PlaywrightError:
                     pass
 
-            # 3) intentar varios selectores típicos del listbox
             candidate_selectors = [
                 f"div[role='option']:has-text('{option_text}')",
                 f"div[role='listbox'] div:has-text('{option_text}')",
@@ -310,13 +274,12 @@ class BrowserAutomation:
             for selector in candidate_selectors:
                 try:
                     candidate = self.page.locator(selector).first
-                    candidate.wait_for(state="visible", timeout=timeout_value)
+                    candidate.wait_for(state="visible", timeout=short_timeout)
                     candidate.click()
                     return True
                 except PlaywrightError:
                     continue
 
-            # 4) fallback: si no hay listbox visible, intentar escribir directamente en el input del multiselect
             try:
                 target_input = self.page.locator(f"{self.resolve_selector(container_selector)} input.multiselect__input")
                 if target_input.count() > 0:
@@ -326,10 +289,9 @@ class BrowserAutomation:
             except PlaywrightError:
                 pass
 
-            # 5) fallback final por texto visible
             try:
                 option = self.page.get_by_text(option_text, exact=False).first
-                option.wait_for(state="visible", timeout=timeout_value)
+                option.wait_for(state="visible", timeout=short_timeout)
                 option.click()
                 return True
             except PlaywrightError:

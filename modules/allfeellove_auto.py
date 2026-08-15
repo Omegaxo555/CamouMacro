@@ -78,12 +78,12 @@ class AllfeelloveAuto:
                 print(f"[allfeellove_auto] No existe el elemento de {label}. Revisa el selector o la carga de la página.")
                 return
 
-        #if self.automation.element_exists(cookies_button):
-        #    print(f"[allfeellove_auto] Intentando click en: {cookies_button}")
-        #    result = self.automation.safe_click(cookies_button)
-        #    print(f"[allfeellove_auto] Resultado click cookies: {result}")
-        #else:
-        #    print(f"[allfeellove_auto] Cookies_button not found")
+        if self.automation.element_exists(cookies_button):
+            print(f"[allfeellove_auto] Intentando click en: {cookies_button}")
+            result = self.automation.safe_click(cookies_button)
+            print(f"[allfeellove_auto] Resultado click cookies: {result}")
+        else:
+            print(f"[allfeellove_auto] Cookies_button not found")
 
         print(f"[allfeellove_auto] Intentando click en: {gender_button}")
         result = self.automation.safe_click(gender_button)
@@ -222,37 +222,66 @@ class AllfeelloveAuto:
 
         #--------------------Seccion de Buscar Perfil--------------------#
         target_name = "Zol"
+        found_profile = self._scan_profiles_until_found(target_name, max_pages=25)
+
+        if found_profile:
+            print(f"[allfeellove_auto] Búsqueda finalizada: '{target_name}' localizado.")
+        else:
+            print(f"[allfeellove_auto] No se encontró '{target_name}' después de revisar las páginas disponibles.")
+
+    def _get_visible_profile_names(self) -> list[str]:
         name_selector = 'p[data-test-id="file:person person-name"]'
+        visible_names = self.driver.page.locator(name_selector).all_text_contents()
+        names = [name.strip() for name in visible_names if name and name.strip()]
+        return [name for name in names if not any(token in name.lower() for token in ["ad", "sponsored", "anuncio", "promo"])][:12]
+
+    def _get_profile_cards(self):
+        return self.driver.page.locator('[data-test-id="file:person person-name"]').locator("..")
+
+    def _find_profile_card_by_name(self, target_name: str):
+        candidate_names = self.driver.page.locator('p[data-test-id="file:person person-name"]')
+        count = candidate_names.count()
+
+        for index in range(count):
+            name = candidate_names.nth(index).text_content()
+            if name and target_name.lower() in str(name).lower():
+                card = candidate_names.nth(index).locator("..")
+                return card
+        return None
+
+    def _has_profile_name(self, target_name: str) -> bool:
+        names = self._get_visible_profile_names()
+        return any(target_name.lower() in name.lower() for name in names)
+
+    def _go_to_next_profile_page(self) -> bool:
         next_page_button = HtmlElement.css('button[data-test-id="cmp:ui-button click:change-page-options-current-page next"]')
+        if not self.automation.safe_click(next_page_button):
+            return False
+        self.driver.page.wait_for_load_state("networkidle", timeout=self.driver.timeout)
+        self.driver.page.wait_for_timeout(400)
+        return True
 
-        page_index = 1
-        max_pages = 25
-        found_profile = False
-
-        while page_index <= max_pages:
-            visible_names = self.driver.page.locator(name_selector).all_text_contents()
-            visible_names = [name.strip() for name in visible_names if name and name.strip()]
+    def _scan_profiles_until_found(self, target_name: str, max_pages: int = 25) -> bool:
+        for page_index in range(1, max_pages + 1):
+            visible_names = self._get_visible_profile_names()
             print(f"[allfeellove_auto] Página {page_index}. Nombres visibles: {visible_names[:12]}")
 
-            if any(target_name.lower() in name.lower() for name in visible_names):
-                print(f"[allfeellove_auto] Perfil '{target_name}' encontrado en la página {page_index}.")
-                found_profile = True
-                break
+            matched_card = self._find_profile_card_by_name(target_name)
+            if matched_card is not None:
+                print(f"[allfeellove_auto] Perfil '{target_name}' encontrado en la página {page_index}. Abriendo tarjeta...")
+                try:
+                    matched_card.click()
+                    return True
+                except Exception:
+                    print(f"[allfeellove_auto] No se pudo abrir la tarjeta del perfil '{target_name}', pero sí fue localizado.")
+                    return True
 
             print(f"[allfeellove_auto] '{target_name}' no encontrado. Avanzando con Next...")
-
-            if not self.automation.safe_click(next_page_button):
+            if not self._go_to_next_profile_page():
                 print(f"[allfeellove_auto] El botón Next no está disponible. Se terminó la búsqueda.")
-                break
+                return False
 
-            self.driver.page.wait_for_load_state("networkidle", timeout=self.driver.timeout)
-            self.driver.page.wait_for_timeout(800)
-            page_index += 1
-
-        if not found_profile:
-            print(f"[allfeellove_auto] No se encontró '{target_name}' después de revisar {max_pages} páginas.")
-        else:
-            print(f"[allfeellove_auto] Búsqueda finalizada: '{target_name}' localizado.")
+        return False
 
 
 def run_allfeellove_auto(driver: CamoufoxHandler) -> None:
