@@ -54,11 +54,11 @@ def find_tor_executable() -> str | None:
     return None
 
 
-def start_tor_background() -> subprocess.Popen | None:
+def start_tor_background(port: int = 9050) -> subprocess.Popen | None:
     global TOR_PROCESS
 
-    if is_port_open(port=9050):
-        print(f"{TerminalUI.ANSI['fg_green']}[tor]{TerminalUI.ANSI['reset']} Tor ya está corriendo en 127.0.0.1:9050")
+    if is_port_open(port=port):
+        print(f"{TerminalUI.ANSI['fg_green']}[tor]{TerminalUI.ANSI['reset']} Tor ya está corriendo en 127.0.0.1:{port}")
         return None
 
     tor_path = find_tor_executable()
@@ -84,12 +84,12 @@ def start_tor_background() -> subprocess.Popen | None:
             )
 
         for _ in range(30):
-            if is_port_open(port=9050):
-                print(f"{TerminalUI.ANSI['fg_green']}[tor]{TerminalUI.ANSI['reset']} Tor arrancó correctamente en 127.0.0.1:9050")
+            if is_port_open(port=port):
+                print(f"{TerminalUI.ANSI['fg_green']}[tor]{TerminalUI.ANSI['reset']} Tor arrancó correctamente en 127.0.0.1:{port}")
                 return TOR_PROCESS
             time.sleep(0.5)
 
-        print(f"{TerminalUI.ANSI['fg_red']}[tor]{TerminalUI.ANSI['reset']} Tor se inició pero no respondió en 127.0.0.1:9050.")
+        print(f"{TerminalUI.ANSI['fg_red']}[tor]{TerminalUI.ANSI['reset']} Tor se inició pero no respondió en 127.0.0.1:{port}.")
         stop_tor_background()
         return None
     except Exception as exc:
@@ -139,6 +139,15 @@ def run_exit() -> None:
     print(f"{TerminalUI.ANSI['fg_yellow']}Saliendo del menú...{TerminalUI.ANSI['reset']}")
 
 
+def build_driver_for_port(port: int = 9050) -> CamoufoxHandler:
+    return CamoufoxHandler(
+        tor_proxy=f"socks5://127.0.0.1:{port}",
+        profile_template="templates/perfil_base.tar.gz",
+        headless=False,
+        window_size=(600, 800),
+    )
+
+
 ALGORITHMS = [
     {"id": "form_demo", "label": "Formulario de prueba", "handler": run_form_demo},
     {"id": "allfeellove_auto", "label": "Allfeellove Auto", "handler": run_allfeellove_auto},
@@ -169,15 +178,10 @@ def run_algorithm_with_debug(driver: CamoufoxHandler, selected: dict) -> None:
 
 
 def main():
-    plantilla_perfil = "templates/perfil_base.tar.gz"
-    start_tor_background()
+    current_port = 9050
+    start_tor_background(port=current_port)
 
-    driver = CamoufoxHandler(
-        tor_proxy="socks5://127.0.0.1:9050",
-        profile_template=plantilla_perfil,
-        headless=False,
-        window_size=(600, 800),
-    )
+    driver = build_driver_for_port(current_port)
 
     try:
         if not driver.initialize():
@@ -193,6 +197,22 @@ def main():
                 break
 
             run_algorithm_with_debug(driver, selected)
+
+            repeat_current = input("¿Quieres repetir este mismo algoritmo? (S/N) [N]: ").strip().lower()
+            if repeat_current in ("", "s", "si", "y", "yes"):
+                print(f"{TerminalUI.ANSI['fg_yellow']}[restart]{TerminalUI.ANSI['reset']} Reiniciando navegador y Tor para repetir el algoritmo...")
+                driver.close()
+                stop_tor_background()
+                current_port = 9051 if current_port == 9050 else 9050
+                if not start_tor_background(port=current_port):
+                    print(f"{TerminalUI.ANSI['fg_red']}[restart]{TerminalUI.ANSI['reset']} No se pudo arrancar Tor en el puerto {current_port}.")
+                    break
+                driver = build_driver_for_port(current_port)
+                if not driver.initialize():
+                    print(f"{TerminalUI.ANSI['fg_red']}[restart]{TerminalUI.ANSI['reset']} Error al reinicializar el navegador.")
+                    break
+                continue
+
             again = input("¿Quieres ejecutar otro algoritmo? (S/N) [S]: ").strip().lower()
             if again in ("", "s", "si", "y", "yes"):
                 continue

@@ -220,45 +220,34 @@ class PeopleTalkGenerator:
         personality: str | None = None,
         tone: str = "flirty",
     ) -> list[str]:
-        """Genera mensajes que encajan entre sí en una sola conversación."""
+        """Genera un hilo natural de 4 mensajes sin repetir saludo o intro masiva."""
         tone_key = tone.lower() if tone.lower() in cls.TONES else "flirty"
         tone_data = cls.TONES[tone_key]
 
-        messages: list[str] = []
-        used_openers: set[str] = set()
-        used_intros: set[str] = set()
-        used_questions: set[str] = set()
+        count = max(1, count)
+        opener_pool = random.sample(tone_data["openers"], min(len(tone_data["openers"]), count))
+        intro_pool = random.sample(tone_data["introductions"], min(len(tone_data["introductions"]), count))
+        question_pool = random.sample(tone_data["questions"], min(len(tone_data["questions"]), count))
 
-        for _ in range(max(1, count)):
-            opener = random.choice(tone_data["openers"])
-            intro = random.choice(tone_data["introductions"])
+        messages: list[str] = []
+        for idx in range(count):
+            opener = opener_pool[idx % len(opener_pool)]
+            intro = intro_pool[idx % len(intro_pool)]
             hook = random.choice(tone_data["hooks"])
             detail = random.choice(tone_data["personal_details"])
-            question = random.choice(tone_data["questions"])
+            question = question_pool[idx % len(question_pool)]
             closer = random.choice(tone_data["closers"])
 
-            while opener in used_openers and len(used_openers) < len(tone_data["openers"]):
-                opener = random.choice(tone_data["openers"])
-            while intro in used_intros and len(used_intros) < len(tone_data["introductions"]):
-                intro = random.choice(tone_data["introductions"])
-            while question in used_questions and len(used_questions) < len(tone_data["questions"]):
-                question = random.choice(tone_data["questions"])
-
-            used_openers.add(opener)
-            used_intros.add(intro)
-            used_questions.add(question)
-
-            if name:
-                message = (
-                    f"{opener} {name}, {intro}. {hook}. {detail}. "
-                    f"{question} {closer}"
-                )
+            if idx == 0:
+                body = f"{opener} {name}, {intro}. {hook}. {detail}. {question} {closer}" if name else f"{opener}, {intro}. {hook}. {detail}. {question} {closer}"
+            elif idx == 1:
+                body = f"I noticed {intro.lower()}. {hook}. {detail}. {question} {closer}"
+            elif idx == 2:
+                body = f"{hook} {detail}. {question} {closer}"
             else:
-                message = (
-                    f"{opener}, {intro}. {hook}. {detail}. "
-                    f"{question} {closer}"
-                )
-            messages.append(message)
+                body = f"I’d like to keep this going. {detail}. {question} {closer}"
+
+            messages.append(body.strip())
 
         return messages
 

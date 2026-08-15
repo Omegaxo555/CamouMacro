@@ -453,6 +453,34 @@ class AllfeelloveAuto:
             print(f"[allfeellove_auto] No se pudo verificar el modo de chat: {exc}")
             return False
 
+    def _send_sticker_batch(self, sticker_count: int = 3) -> None:
+        toggle_selector = 'button[data-test-id="click:toggle-sticker-box"]'
+        sticker_selector = 'div[data-test-id*="click:on-send-sticker-sticker"]'
+
+        try:
+            toggle_button = self.driver.page.locator(toggle_selector).first
+            if toggle_button.count() > 0:
+                if toggle_button.is_visible():
+                    toggle_button.click(force=True)
+                else:
+                    toggle_button.scroll_into_view_if_needed()
+                    toggle_button.click(force=True)
+                self.driver.page.wait_for_timeout(500)
+        except Exception:
+            pass
+
+        try:
+            sticker_items = self.driver.page.locator(sticker_selector)
+            max_to_click = min(sticker_count, max(1, sticker_items.count()))
+            for index in range(max_to_click):
+                item = sticker_items.nth(index)
+                if item.is_visible():
+                    item.click(force=True)
+                    self.driver.page.wait_for_timeout(250)
+            print(f"[allfeellove_auto] Se enviaron {max_to_click} stickers.")
+        except Exception as exc:
+            print(f"[allfeellove_auto] Error al enviar stickers: {exc}")
+
     def _interact_with_found_profile(self, card_locator) -> None:
         view_profile_selector = 'button[data-test-id="cmp:ui-button click:go-to-profile-via-button"]'
         like_selectors = [
@@ -483,28 +511,55 @@ class AllfeelloveAuto:
             print(f"[allfeellove_auto] No se pudo abrir el perfil: {exc}")
             return
 
-        for _ in range(5):
+        for _ in range(10):
             triggered_like = False
             triggered_wink = False
 
             for selector in like_selectors:
                 try:
-                    like_button = self.driver.page.locator(selector).first
-                    if like_button.count() > 0 and like_button.is_visible():
-                        like_button.click()
-                        print(f"[allfeellove_auto] Like enviado a '{self.last_found_profile_name}'.")
-                        triggered_like = True
+                    like_button = self.driver.page.locator(selector)
+                    if like_button.count() <= 0:
+                        continue
+
+                    for index in range(like_button.count()):
+                        candidate = like_button.nth(index)
+                        if candidate.is_visible():
+                            try:
+                                candidate.click(force=True)
+                            except Exception:
+                                handle = candidate.element_handle()
+                                if handle is not None:
+                                    self.driver.page.evaluate("(el) => el.click()", handle)
+                            print(f"[allfeellove_auto] Like enviado a '{self.last_found_profile_name}'.")
+                            triggered_like = True
+                            break
+                    if triggered_like:
                         break
                 except Exception:
                     pass
 
+            if triggered_like:
+                break
+
             for selector in wink_selectors:
                 try:
-                    wink_button = self.driver.page.locator(selector).first
-                    if wink_button.count() > 0 and wink_button.is_visible():
-                        wink_button.click()
-                        print(f"[allfeellove_auto] Wink enviado a '{self.last_found_profile_name}'.")
-                        triggered_wink = True
+                    wink_button = self.driver.page.locator(selector)
+                    if wink_button.count() <= 0:
+                        continue
+
+                    for index in range(wink_button.count()):
+                        candidate = wink_button.nth(index)
+                        if candidate.is_visible():
+                            try:
+                                candidate.click(force=True)
+                            except Exception:
+                                handle = candidate.element_handle()
+                                if handle is not None:
+                                    self.driver.page.evaluate("(el) => el.click()", handle)
+                            print(f"[allfeellove_auto] Wink enviado a '{self.last_found_profile_name}'.")
+                            triggered_wink = True
+                            break
+                    if triggered_wink:
                         break
                 except Exception:
                     pass
@@ -512,7 +567,7 @@ class AllfeelloveAuto:
             if triggered_like or triggered_wink:
                 break
 
-            self.driver.page.wait_for_timeout(250)
+            self.driver.page.wait_for_timeout(200)
 
         if not self._ensure_chat_mode():
             print("[allfeellove_auto] El modo Chat no se pudo activar; se cancela el flujo de mensajes.")
@@ -526,26 +581,39 @@ class AllfeelloveAuto:
 
         tone = random.choice(["flirty", "casual", "premium"])
         messages = PeopleTalkGenerator.build_message_set(
-            count=5,
+            count=4,
             name=self.last_found_profile_name,
             age=self.last_found_profile_age,
             personality="warm, playful, and confident",
             tone=tone,
         )
 
+        textarea = self.driver.page.locator(textarea_selector).first
+        send_button = self.driver.page.locator(send_selector).first
+
         for index, message in enumerate(messages, start=1):
             try:
-                self.driver.page.wait_for_selector(textarea_selector, state="visible", timeout=10000)
-                self.automation.human_type(textarea_selector, message)
-                self.automation.safe_click(send_selector)
-                print(f"[allfeellove_auto] Mensaje {index}/5 enviado: {message}")
+                textarea.wait_for(state="visible", timeout=10000)
+                textarea.click()
+                textarea.fill("")
+                textarea.type(message, delay=250)
+                self.driver.page.wait_for_timeout(250)
+                if send_button.count() > 0 and send_button.is_visible():
+                    send_button.click(force=True)
+                else:
+                    self.automation.safe_click(send_selector)
+                print(f"[allfeellove_auto] Mensaje {index}/4 enviado: {message}")
             except Exception as exc:
-                print(f"[allfeellove_auto] Error al enviar mensaje {index}/5: {exc}")
+                print(f"[allfeellove_auto] Error al enviar mensaje {index}/4: {exc}")
                 break
 
             if index < len(messages):
-                print(f"[allfeellove_auto] Esperando 1.5 segundos antes del siguiente mensaje...")
-                self.driver.page.wait_for_timeout(1500)
+                self.driver.page.wait_for_timeout(900)
+
+        try:
+            self._send_sticker_batch(sticker_count=3)
+        except Exception as exc:
+            print(f"[allfeellove_auto] No se pudieron enviar stickers: {exc}")
 
     def _go_to_next_profile_page(self) -> bool:
         next_page_selector = (
