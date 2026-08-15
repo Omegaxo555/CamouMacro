@@ -176,7 +176,7 @@ def main():
         tor_proxy="socks5://127.0.0.1:9050",
         profile_template=plantilla_perfil,
         headless=False,
-        window_size=(1920, 1080),
+        window_size=(600, 800),
     )
 
     try:
