@@ -171,16 +171,16 @@ class AllfeelloveAuto:
         accountSearch = HtmlElement.css('#AccountSearch')
         filtersButton = HtmlElement.css('[data-test-id="file:extend-search click:show-filter filters"]')
 
-        countrySelect = HtmlElement.css('div[data-test-id="cmp:ui-select search-country select-country"]')
-        countrySearchInput = HtmlElement.css('div[data-test-id="cmp:ui-select search-country select-country"] input.multiselect__input')
+        countrySelect = HtmlElement.css('div.multiselect[role="combobox"][data-test-id="cmp:ui-select search-country select-country"]')
+        countrySearchInput = HtmlElement.css('div.multiselect[role="combobox"][data-test-id="cmp:ui-select search-country select-country"] input.multiselect__input')
 
-        ageFromSelect = HtmlElement.css('div[data-test-id="cmp:ui-select search-age-from from"]')
-        ageFromInput = HtmlElement.css('div[data-test-id="cmp:ui-select search-age-from from"] input.multiselect__input')
+        ageFromSelect = HtmlElement.css('div.multiselect[role="combobox"][data-test-id="cmp:ui-select search-age-from from"]')
+        ageFromInput = HtmlElement.css('div.multiselect[role="combobox"][data-test-id="cmp:ui-select search-age-from from"] input.multiselect__input')
 
-        ageToSelect = HtmlElement.css('div[data-test-id="cmp:ui-select search-age-to to"]')
-        ageToInput = HtmlElement.css('div[data-test-id="cmp:ui-select search-age-to to"] input.multiselect__input')
+        ageToSelect = HtmlElement.css('div.multiselect[role="combobox"][data-test-id="cmp:ui-select search-age-to to"]')
+        ageToInput = HtmlElement.css('div.multiselect[role="combobox"][data-test-id="cmp:ui-select search-age-to to"] input.multiselect__input')
 
-        genderSelect = HtmlElement.css('div[data-test-id="cmp:ui-select search-gender"]')
+        genderSelect = HtmlElement.css('div.multiselect[role="combobox"][data-test-id="cmp:ui-select search-gender"]')
         searchPeople = HtmlElement.css('button[data-test-id="cmp:ui-button click:show-people show-people"]')
 
         result = self.automation.safe_click(accountSearch)
@@ -214,8 +214,8 @@ class AllfeelloveAuto:
         )
         print(f'[allfeellove_auto] Edad hasta seleccionada: {result}')
 
-        result = self.automation.safe_click(genderSelect)
-        print(f'[allfeellove_auto] Apertura selector de género: {result}')
+        #result = self.automation.safe_click(genderSelect)
+        #print(f'[allfeellove_auto] Apertura selector de género: {result}')
 
         self.automation.safe_click(searchPeople)
         print(f'[allfeellove_auto] Filtros Terminados...')

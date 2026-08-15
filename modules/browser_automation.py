@@ -229,40 +229,77 @@ class BrowserAutomation:
         search_selector: Optional[Union[str, HtmlElement]] = None,
         timeout: Optional[int] = None,
     ) -> bool:
-        """Selecciona una opción dentro de un multiselect o dropdown con búsqueda."""
+        """Selecciona una opción dentro de un multiselect Vue/Allfeellove."""
         timeout_value = timeout or self.default_timeout
         try:
             container = self.locator(container_selector, timeout_value)
             container.wait_for(state="visible", timeout=timeout_value)
-            container.click()
 
+            try:
+                selected_text = container.locator("span.multiselect__single").text_content()
+                if selected_text and option_text.lower() in str(selected_text).lower():
+                    return True
+            except Exception:
+                pass
+
+            # 1) abrir el dropdown
+            try:
+                container.click()
+            except PlaywrightError:
+                try:
+                    container.locator(".ui-select_icon").click()
+                except PlaywrightError:
+                    pass
+
+            # 2) si existe un input interno de búsqueda, escribir allí
             if search_selector is not None:
                 try:
                     search_box = self.locator(search_selector, timeout_value)
                     search_box.wait_for(state="visible", timeout=timeout_value)
                     search_box.fill("")
+                    search_box.press("Control+A")
                     search_box.fill(option_text)
                     time.sleep(random.uniform(0.2, 0.5))
                 except PlaywrightError:
                     pass
 
-            candidates = [
-                lambda: self.page.get_by_text(option_text, exact=False).first,
-                lambda: self.page.locator(f"text={option_text}").first,
-                lambda: self.page.locator(f"div:has-text('{option_text}')").first,
-                lambda: self.page.locator(f"//*[contains(normalize-space(.), '{option_text}')]"),
+            # 3) intentar varios selectores típicos del listbox
+            candidate_selectors = [
+                f"div[role='option']:has-text('{option_text}')",
+                f"div[role='listbox'] div:has-text('{option_text}')",
+                f"li:has-text('{option_text}')",
+                f"span:has-text('{option_text}')",
+                f"[role='option'] >> text={option_text}",
+                f"text={option_text}",
             ]
 
-            for candidate_fn in candidates:
+            for selector in candidate_selectors:
                 try:
-                    candidate = candidate_fn()
+                    candidate = self.page.locator(selector).first
                     candidate.wait_for(state="visible", timeout=timeout_value)
                     candidate.click()
                     return True
                 except PlaywrightError:
                     continue
 
-            return False
+            # 4) fallback: si no hay listbox visible, intentar escribir directamente en el input del multiselect
+            try:
+                target_input = self.page.locator(f"{self.resolve_selector(container_selector)} input.multiselect__input")
+                if target_input.count() > 0:
+                    target_input.first.fill(option_text)
+                    target_input.first.press("Enter")
+                    return True
+            except PlaywrightError:
+                pass
+
+            # 5) fallback final por texto visible
+            try:
+                option = self.page.get_by_text(option_text, exact=False).first
+                option.wait_for(state="visible", timeout=timeout_value)
+                option.click()
+                return True
+            except PlaywrightError:
+                return False
         except PlaywrightError:
             return False
 
