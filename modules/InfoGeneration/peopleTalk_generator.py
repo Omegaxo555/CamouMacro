@@ -2,7 +2,7 @@ import random
 
 
 class PeopleTalkGenerator:
-    """Genera mensajes naturales, variados y coherentes en inglés para perfiles reales."""
+    """Genera mensajes naturales, variados y coherentes para una conversación real."""
 
     TONES = {
         "flirty": {
@@ -14,116 +14,105 @@ class PeopleTalkGenerator:
                 "Hi there",
                 "Good evening",
                 "Hey gorgeous",
-                "Hey cutie",
-                "Hi beautiful",
                 "Well hello",
             ],
             "introductions": [
-                "I was checking your profile and I had to say something",
-                "Your profile really caught my attention",
-                "I couldn’t help but notice you",
-                "I saw your profile and I had to say hi",
-                "I like the vibe you give off",
-                "Your photos instantly stood out to me",
-                "You seem really interesting from your profile",
-                "There’s something about you that feels really attractive",
+                "your profile caught my attention",
+                "your vibe stood out to me",
+                "I had to say hi after seeing your profile",
+                "I was curious about you from your photos",
+                "there is something really appealing about you",
+                "your energy feels easy and attractive",
+                "I liked the way you come across",
+                "I couldn’t ignore how interesting you seem",
             ],
-            "compliments": [
-                "your smile is incredibly charming",
-                "your energy feels really warm and fun",
-                "you have a really beautiful presence",
-                "your vibe is so easy and attractive",
-                "you seem genuinely sweet and interesting",
-                "your style looks really good",
-                "you have a very confident and attractive aura",
-                "you seem like someone I would enjoy talking to",
-                "your profile feels very refreshing",
-                "you look really kind and fun",
+            "hooks": [
+                "I’m usually drawn to people who have a warm, fun energy",
+                "I like people who seem genuine and easy to talk to",
+                "I’m always curious about what makes someone interesting in person",
+                "I like the way your profile feels relaxed and confident",
+                "I enjoy talking to people who seem fun and grounded",
+                "I’ve been trying to meet someone with a good vibe lately",
+                "I like conversations that feel natural instead of forced",
             ],
-            "flirty_lines": [
-                "I think we’d have a great conversation",
-                "I like your vibe more than I expected",
-                "You seem really easy to talk to",
-                "I feel like we’d get along pretty well",
-                "There’s something intriguing about you",
-                "You have a really attractive energy",
-                "I like the way you come across",
-                "You seem like someone I’d be interested in knowing better",
-                "You look like a lot of fun",
-                "There’s a certain charm about you",
+            "personal_details": [
+                "I enjoy good conversations more than small talk",
+                "I like people who can make a simple chat feel interesting",
+                "I tend to enjoy people with a confident but easygoing energy",
+                "I’m a big believer in good chemistry and natural conversation",
+                "I usually appreciate someone who knows how to make a conversation flow",
+                "I like meeting people who are both fun and thoughtful",
+            ],
+            "questions": [
+                "What do you usually do when you want to relax?",
+                "What kind of vibe do you usually go for in people?",
+                "What’s something you’re really into lately?",
+                "What would make a perfect weekend for you?",
+                "What’s your idea of a really good conversation?",
+                "What kind of people usually catch your attention?",
+                "What do you enjoy most about meeting new people?",
+                "What’s a place or activity that always makes you happy?",
             ],
             "closers": [
-                "want to chat a little more?",
-                "want to keep this conversation going?",
-                "want to get to know each other a bit more?",
-                "would you be up for a quick chat?",
-                "do you want to talk a little more?",
-                "want to see where this goes?",
-                "interested in talking a bit more?",
-                "would you like to continue the conversation?",
-                "want to flirt a little with me?",
-                "want to share a few thoughts with me?",
-            ]
+                "I’d love to hear more about you.",
+                "I’m curious to know more.",
+                "I’d be interested in hearing your take on that.",
+                "I’d like to know more about that side of you.",
+                "I think we could have a really good chat.",
+            ],
         },
         "casual": {
             "openers": [
                 "Hey",
                 "Hi",
-                "Hey there",
                 "Hello",
+                "Hey there",
                 "Hi there",
                 "What’s up",
-                "Hey you",
-                "Morning",
                 "Good to meet you",
-                "Hey handsome",
             ],
             "introductions": [
-                "I noticed your profile and wanted to say hi",
-                "Your profile stood out to me",
-                "I saw your profile and it caught my attention",
-                "I thought I’d say hello",
-                "You seem really interesting from your profile",
-                "I had to reach out because you seem cool",
-                "Your vibe looks really good",
-                "You looked like someone worth talking to",
+                "your profile caught my eye",
+                "your vibe felt really easygoing",
+                "I had to say hello after seeing your profile",
+                "I liked the overall energy you give off",
+                "you looked like someone worth talking to",
+                "I liked the way your profile felt natural",
+                "there’s something about you that feels approachable",
+                "you seem like someone with a fun personality",
             ],
-            "compliments": [
-                "you seem really easy to talk to",
-                "you have a great sense of style",
-                "your smile looks super genuine",
-                "you seem fun and down to earth",
-                "you have a really nice energy",
-                "you look like a great person to know",
-                "you seem really interesting and kind",
-                "your profile feels very authentic",
-                "you seem warm and approachable",
-                "you have a really good vibe",
+            "hooks": [
+                "I like people who seem genuine and easy to talk to",
+                "I enjoy meeting people who have a relaxed, positive energy",
+                "I always find it interesting to get to know people through conversation",
+                "I like a chat that feels natural and not rehearsed",
+                "I’m always curious about what kind of person someone is outside the obvious stuff",
+                "I like how a real conversation can tell you a lot about someone",
             ],
-            "flirty_lines": [
-                "I like the way you come across",
-                "You seem like a lot of fun",
-                "I think we could have a good chat",
-                "I like your energy",
-                "You seem really pleasant to talk to",
-                "There’s something refreshing about you",
-                "You have a really attractive personality",
-                "I feel like we’d get along well",
-                "Your vibe is definitely interesting",
-                "You seem like someone worth getting to know",
+            "personal_details": [
+                "I’m usually someone who likes straightforward, easygoing conversations",
+                "I enjoy talking to people who can make a simple chat feel fun",
+                "I appreciate people with good energy and a sense of humor",
+                "I like learning what makes people interesting in a real way",
+                "I tend to enjoy people who are warm and easy to connect with",
+            ],
+            "questions": [
+                "What’s something you really enjoy doing in your free time?",
+                "What kind of people usually click with you?",
+                "What makes you feel most relaxed?",
+                "What’s a topic you could talk about for hours?",
+                "What do you like doing on weekends?",
+                "What kind of energy do you usually look for in someone?",
+                "What’s something you’ve been getting into lately?",
+                "What’s the best part of your week?",
             ],
             "closers": [
-                "want to chat sometime?",
-                "want to talk a little more?",
-                "want to keep this conversation going?",
-                "up for a quick conversation?",
-                "want to get to know each other a bit?",
-                "want to continue chatting?",
-                "want to exchange a few words more?",
-                "want to see if we click?",
-                "interested in talking a bit more?",
-                "would be nice to hear from you?",
-            ]
+                "I’d like to hear more about you.",
+                "I’d enjoy hearing your perspective.",
+                "I think we could have a good chat.",
+                "I’m curious to know more about that.",
+                "I’d like to keep this conversation going.",
+            ],
         },
         "premium": {
             "openers": [
@@ -131,60 +120,51 @@ class PeopleTalkGenerator:
                 "Hello",
                 "Hi",
                 "It’s a pleasure to meet you",
-                "How are you doing",
                 "You caught my attention",
-                "Good to see you",
-                "I hope you’re doing well",
-                "I’ve been meaning to say hi",
-                "You seem quite remarkable",
             ],
             "introductions": [
-                "I came across your profile and I had to reach out",
-                "Your profile immediately stood out to me",
-                "I was drawn to your presence and wanted to say hello",
-                "Your elegance and energy are hard to ignore",
-                "You seem like someone with a very interesting personality",
-                "I couldn’t ignore the impression you gave me",
-                "Your profile has a very refined and attractive vibe",
-                "You seem genuinely impressive",
+                "your profile immediately stood out to me",
+                "your presence feels very intriguing",
+                "I had to reach out after seeing your profile",
+                "I was drawn to the energy you give off",
+                "there is something very memorable about your profile",
+                "your profile feels polished and confident",
+                "you seem like someone with a very interesting perspective",
+                "you have a very attractive and refined presence",
             ],
-            "compliments": [
-                "your presence feels effortlessly elegant",
-                "your profile gives off a very polished and confident energy",
-                "you seem incredibly classy and intriguing",
-                "your smile is very captivating",
-                "you have a very refined and attractive style",
-                "you seem thoughtful and genuinely lovely",
-                "you carry a very charming energy",
-                "your look is undeniably impressive",
-                "you seem very mature and magnetic",
-                "you have an elegant and memorable presence",
+            "hooks": [
+                "I enjoy conversations with people who have depth and personality",
+                "I appreciate people who can be both confident and easy to talk to",
+                "I’m always attracted to someone with a strong sense of self",
+                "I like a conversation that feels thoughtful and genuine",
+                "I enjoy meeting people who have an interesting point of view",
+                "I think chemistry often starts with a natural, easy conversation",
             ],
-            "flirty_lines": [
-                "I feel like we could have an excellent conversation",
-                "You have a very captivating aura",
-                "There’s something truly memorable about you",
-                "I think we’d get along very well",
-                "You seem like someone with a lot of depth",
-                "Your energy is both attractive and interesting",
-                "You seem genuinely special",
-                "There’s a lot I’d like to learn about you",
-                "You have a very compelling presence",
-                "I think you’d be a very interesting person to know",
+            "personal_details": [
+                "I tend to be drawn to people who have a sense of charm and intelligence",
+                "I enjoy talking to people who are both interesting and easy to connect with",
+                "I usually appreciate people with great energy and a lot of personality",
+                "I like conversations that go beyond the obvious and feel real",
+                "I value people who seem thoughtful, confident, and warm",
+            ],
+            "questions": [
+                "What makes you feel most like yourself?",
+                "What kind of experiences usually stay with you?",
+                "What’s a conversation topic you always enjoy?",
+                "What do you value most in the people you connect with?",
+                "What’s something that really excites you lately?",
+                "What kind of energy do you look for in people?",
+                "What do you enjoy most about spending time with someone you like?",
+                "What do you think makes a person genuinely interesting?",
             ],
             "closers": [
-                "would you be open to a more interesting conversation?",
-                "want to continue this conversation sometime?",
-                "would you like to get to know each other better?",
-                "want to talk a little more and see where it goes?",
-                "interested in hearing more from you?",
-                "would you be open to a nice chat?",
-                "want to explore a little more of each other?",
-                "want to continue a conversation with someone interesting?",
-                "want to share a little more with me?",
-                "would you enjoy a more personal conversation?",
-            ]
-        }
+                "I’d really like to hear more about that.",
+                "I think this could turn into a great conversation.",
+                "I’m curious to know more about your perspective.",
+                "I’d enjoy learning more about that side of you.",
+                "I’d love to keep talking and hear more.",
+            ],
+        },
     }
 
     @staticmethod
@@ -209,20 +189,27 @@ class PeopleTalkGenerator:
     @classmethod
     def build_message(cls, name: str | None = None, age: int | None = None, personality: str | None = None, tone: str = "flirty") -> str:
         tone_key = tone.lower() if tone.lower() in cls.TONES else "flirty"
-        pool = cls.TONES[tone_key]
+        tone_data = cls.TONES[tone_key]
 
-        opener = random.choice(pool["openers"])
-        intro = random.choice(pool["introductions"])
-        compliment = random.choice(pool["compliments"])
-        flirty_line = random.choice(pool["flirty_lines"])
-        closer = random.choice(pool["closers"])
+        opener = random.choice(tone_data["openers"])
+        intro = random.choice(tone_data["introductions"])
+        hook = random.choice(tone_data["hooks"])
+        detail = random.choice(tone_data["personal_details"])
+        question = random.choice(tone_data["questions"])
+        closer = random.choice(tone_data["closers"])
 
-        profile_context = cls._build_profile_context(name, age, personality)
-        open_text = f"{opener}, {intro}."
         if name:
-            open_text = f"{opener} {name}, {intro}."
+            sentence = (
+                f"{opener} {name}, {intro}. {hook}. {detail}. "
+                f"{question} {closer}"
+            )
+        else:
+            sentence = (
+                f"{opener}, {intro}. {hook}. {detail}. "
+                f"{question} {closer}"
+            )
 
-        return f"{open_text} {compliment}. {flirty_line}. {closer}"
+        return sentence
 
     @classmethod
     def build_message_set(
@@ -233,68 +220,65 @@ class PeopleTalkGenerator:
         personality: str | None = None,
         tone: str = "flirty",
     ) -> list[str]:
-        """Genera una lista de mensajes sin repetir partes clave del mensaje."""
+        """Genera mensajes que encajan entre sí en una sola conversación."""
         tone_key = tone.lower() if tone.lower() in cls.TONES else "flirty"
-        pool = cls.TONES[tone_key]
+        tone_data = cls.TONES[tone_key]
 
         messages: list[str] = []
         used_openers: set[str] = set()
         used_intros: set[str] = set()
-        used_compliments: set[str] = set()
-        used_flirty: set[str] = set()
-        used_closers: set[str] = set()
+        used_questions: set[str] = set()
 
         for _ in range(max(1, count)):
-            opener = random.choice(pool["openers"])
-            intro = random.choice(pool["introductions"])
-            compliment = random.choice(pool["compliments"])
-            flirty_line = random.choice(pool["flirty_lines"])
-            closer = random.choice(pool["closers"])
+            opener = random.choice(tone_data["openers"])
+            intro = random.choice(tone_data["introductions"])
+            hook = random.choice(tone_data["hooks"])
+            detail = random.choice(tone_data["personal_details"])
+            question = random.choice(tone_data["questions"])
+            closer = random.choice(tone_data["closers"])
 
-            while opener in used_openers and len(used_openers) < len(pool["openers"]):
-                opener = random.choice(pool["openers"])
-            while intro in used_intros and len(used_intros) < len(pool["introductions"]):
-                intro = random.choice(pool["introductions"])
-            while compliment in used_compliments and len(used_compliments) < len(pool["compliments"]):
-                compliment = random.choice(pool["compliments"])
-            while flirty_line in used_flirty and len(used_flirty) < len(pool["flirty_lines"]):
-                flirty_line = random.choice(pool["flirty_lines"])
-            while closer in used_closers and len(used_closers) < len(pool["closers"]):
-                closer = random.choice(pool["closers"])
+            while opener in used_openers and len(used_openers) < len(tone_data["openers"]):
+                opener = random.choice(tone_data["openers"])
+            while intro in used_intros and len(used_intros) < len(tone_data["introductions"]):
+                intro = random.choice(tone_data["introductions"])
+            while question in used_questions and len(used_questions) < len(tone_data["questions"]):
+                question = random.choice(tone_data["questions"])
 
             used_openers.add(opener)
             used_intros.add(intro)
-            used_compliments.add(compliment)
-            used_flirty.add(flirty_line)
-            used_closers.add(closer)
+            used_questions.add(question)
 
-            subject = cls._build_profile_context(name, age, personality)
-            sentence = f"{opener}, {intro}. {compliment}. {flirty_line}. {closer}"
             if name:
-                sentence = f"{opener} {name}, {intro}. {compliment}. {flirty_line}. {closer}"
-            messages.append(sentence)
+                message = (
+                    f"{opener} {name}, {intro}. {hook}. {detail}. "
+                    f"{question} {closer}"
+                )
+            else:
+                message = (
+                    f"{opener}, {intro}. {hook}. {detail}. "
+                    f"{question} {closer}"
+                )
+            messages.append(message)
 
         return messages
 
     @classmethod
     def build_message_batch(cls, count: int = 5, include_types: list[str] | None = None) -> dict[str, list[str]]:
-        """Genera mensajes separados por tipo: introduction, compliment, closing, etc."""
-        include_types = include_types or ["presentation", "compliment", "flirty", "invitation"]
-        result: dict[str, list[str]] = {}
-
-        for message_type in include_types:
-            result[message_type] = []
+        """Genera un lote con tipos de conversación: intro, opinion, question y closing."""
+        include_types = include_types or ["intro", "story", "question", "follow_up"]
+        result: dict[str, list[str]] = {message_type: [] for message_type in include_types}
 
         for message_type in include_types:
             for _ in range(max(1, count)):
-                if message_type == "presentation":
-                    result[message_type].append(cls.build_message(tone=random.choice(["flirty", "casual", "premium"])))
-                elif message_type == "compliment":
-                    result[message_type].append(cls.build_message(tone=random.choice(["flirty", "casual", "premium"])))
-                elif message_type == "flirty":
-                    result[message_type].append(cls.build_message(tone=random.choice(["flirty", "casual", "premium"])))
+                tone = random.choice(["flirty", "casual", "premium"])
+                if message_type == "intro":
+                    result[message_type].append(cls.build_message(tone=tone))
+                elif message_type == "story":
+                    result[message_type].append(cls.build_message(tone=tone))
+                elif message_type == "question":
+                    result[message_type].append(cls.build_message(tone=tone))
                 else:
-                    result[message_type].append(cls.build_message(tone=random.choice(["flirty", "casual", "premium"])))
+                    result[message_type].append(cls.build_message(tone=tone))
 
         return result
 
@@ -302,4 +286,3 @@ class PeopleTalkGenerator:
 if __name__ == "__main__":
     generator = PeopleTalkGenerator()
     print(generator.build_message_set(5, name="Alicia", age=28, personality="sweet and witty", tone="flirty"))
-    print(generator.build_message_batch(3, include_types=["presentation", "compliment", "flirty", "invitation"]))

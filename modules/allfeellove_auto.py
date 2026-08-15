@@ -195,11 +195,11 @@ class AllfeelloveAuto:
 
         result = self.automation.safe_click(allpeopleButton)
         print(f'[allfeellove_auto] Filtrando todos: {result}')
-        self.driver.page.wait_for_timeout(1000)
+        self.driver.page.wait_for_timeout(250)
 
         result = self.automation.safe_click(filtersButton)
         print(f'[allfeellove_auto] Abriendo el apartado de filtros: {result}')
-        self.driver.page.wait_for_timeout(100)
+        self.driver.page.wait_for_timeout(80)
 
         result = self.automation.select_multiselect_option(
             countrySelect,
@@ -455,8 +455,18 @@ class AllfeelloveAuto:
 
     def _interact_with_found_profile(self, card_locator) -> None:
         view_profile_selector = 'button[data-test-id="cmp:ui-button click:go-to-profile-via-button"]'
-        like_selector = 'button[data-test-id="cmp:ui-button click:on-like"]'
-        wink_selector = 'button[data-test-id="cmp:ui-button click:on-wink"]'
+        like_selectors = [
+            'button[data-test-id="cmp:ui-button click:on-like"]',
+            'button[data-test-id*="on-like"]',
+            'button:has-text("Like")',
+            'button >> text=Like',
+        ]
+        wink_selectors = [
+            'button[data-test-id="cmp:ui-button click:on-wink"]',
+            'button[data-test-id*="on-wink"]',
+            'button:has-text("Wink")',
+            'button >> text=Wink',
+        ]
         textarea_selector = 'textarea[data-test-id="cmp:ui-textarea message type-your-message"]'
         send_selector = 'button[data-test-id="cmp:ui-button click:send-message send"]'
 
@@ -467,29 +477,42 @@ class AllfeelloveAuto:
             view_button.wait_for(state="visible", timeout=8000)
             view_button.click()
             self.driver.page.wait_for_load_state("domcontentloaded", timeout=10000)
-            self.driver.page.wait_for_timeout(700)
+            self.driver.page.wait_for_timeout(400)
             print(f"[allfeellove_auto] Se abrió el perfil de '{self.last_found_profile_name}'.")
         except Exception as exc:
             print(f"[allfeellove_auto] No se pudo abrir el perfil: {exc}")
             return
-        
-        try:
-            like_button = self.driver.page.locator(like_selector)
-            if like_button.count() > 0:
-                like_button.first.wait_for(state="visible", timeout=8000)
-                like_button.first.click()
-                print(f"[allfeellove_auto] Like enviado a '{self.last_found_profile_name}'.")
-        except Exception as exc:
-            print(f"[allfeellove_auto] No se pudo dar Like: {exc}")
 
-        try:
-            wink_button = self.driver.page.locator(wink_selector)
-            if wink_button.count() > 0:
-                wink_button.first.wait_for(state="visible", timeout=8000)
-                wink_button.first.click()
-                print(f"[allfeellove_auto] Wink enviado a '{self.last_found_profile_name}'.")
-        except Exception as exc:
-            print(f"[allfeellove_auto] No se pudo enviar wink: {exc}")
+        for _ in range(5):
+            triggered_like = False
+            triggered_wink = False
+
+            for selector in like_selectors:
+                try:
+                    like_button = self.driver.page.locator(selector).first
+                    if like_button.count() > 0 and like_button.is_visible():
+                        like_button.click()
+                        print(f"[allfeellove_auto] Like enviado a '{self.last_found_profile_name}'.")
+                        triggered_like = True
+                        break
+                except Exception:
+                    pass
+
+            for selector in wink_selectors:
+                try:
+                    wink_button = self.driver.page.locator(selector).first
+                    if wink_button.count() > 0 and wink_button.is_visible():
+                        wink_button.click()
+                        print(f"[allfeellove_auto] Wink enviado a '{self.last_found_profile_name}'.")
+                        triggered_wink = True
+                        break
+                except Exception:
+                    pass
+
+            if triggered_like or triggered_wink:
+                break
+
+            self.driver.page.wait_for_timeout(250)
 
         if not self._ensure_chat_mode():
             print("[allfeellove_auto] El modo Chat no se pudo activar; se cancela el flujo de mensajes.")
