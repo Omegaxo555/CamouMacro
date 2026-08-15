@@ -404,40 +404,50 @@ class AllfeelloveAuto:
         return None, None, None
 
     def _ensure_chat_mode(self) -> bool:
-        """Verifica si la vista está en Mail y la alterna a Chat antes de enviar mensajes."""
+        """Convierte la vista de Mail a Chat usando el botón exacto del sitio."""
         try:
-            switch_selector = (
-                'button[data-test-id*="change-to-chat"], '
-                'button:has-text("Change to chat"), '
-                'button:has-text("SwitchMode")'
-            )
-            mail_title_selector = '#mail-title, p:has-text("Mail"), p:has-text("mail")'
+            textarea_ready = self.driver.page.locator('textarea[data-test-id="cmp:ui-textarea message type-your-message"]')
+            if textarea_ready.count() > 0 and textarea_ready.first.is_visible():
+                print("[allfeellove_auto] Ya está en modo Chat.")
+                return True
 
-            for attempt in range(2):
-                mail_title = self.driver.page.locator(mail_title_selector)
-                if mail_title.count() > 0:
-                    for i in range(min(mail_title.count(), 5)):
-                        text = (mail_title.nth(i).text_content() or "").strip().lower()
-                        if "mail" in text:
-                            switch_button = self.driver.page.locator(switch_selector).first
-                            if switch_button.count() > 0 and switch_button.is_visible():
-                                print("[allfeellove_auto] Detectado modo Mail. Cambiando a Chat...")
-                                switch_button.click()
-                                self.driver.page.wait_for_timeout(600)
-                                break
-                            return False
+            switch_selectors = [
+                'button[data-test-id="cmp:ui-button click:is-chat-visible-true change-to-chat"]',
+                'button:has-text("Change to chat")',
+                'button:has-text("SwitchMode")',
+                'button >> text=Change to chat',
+                'button[data-test-id*="change-to-chat"]',
+            ]
 
-                chat_visible = self.driver.page.locator('p:has-text("Chat"), div:has-text("Chat")').first
-                if chat_visible.count() > 0 and chat_visible.is_visible():
-                    print("[allfeellove_auto] Ya está en modo Chat.")
-                    return True
+            for selector in switch_selectors:
+                try:
+                    button = self.driver.page.locator(selector).first
+                    if button.count() > 0 and button.is_visible():
+                        print("[allfeellove_auto] Detectado modo Mail. Cambiando a Chat...")
+                        button.click()
+                        self.driver.page.wait_for_timeout(400)
+                        if textarea_ready.count() > 0 and textarea_ready.first.is_visible():
+                            return True
+                        return True
+                except Exception:
+                    continue
 
-                textarea_ready = self.driver.page.locator('textarea[data-test-id="cmp:ui-textarea message type-your-message"]').first
-                if textarea_ready.count() > 0 and textarea_ready.is_visible():
-                    print("[allfeellove_auto] El textarea de chat ya está disponible.")
-                    return True
-
-                self.driver.page.wait_for_timeout(250)
+            mail_label = self.driver.page.locator('#mail-title, p:has-text("Mail"), text=Mail')
+            if mail_label.count() > 0:
+                for idx in range(min(mail_label.count(), 5)):
+                    text = (mail_label.nth(idx).text_content() or "").strip().lower()
+                    if "mail" in text:
+                        print("[allfeellove_auto] Vista en Mail detectada por el label del sitio.")
+                        for selector in switch_selectors:
+                            try:
+                                button = self.driver.page.locator(selector).first
+                                if button.count() > 0 and button.is_visible():
+                                    button.click()
+                                    self.driver.page.wait_for_timeout(400)
+                                    return True
+                            except Exception:
+                                continue
+                        return False
 
             return False
         except Exception as exc:
