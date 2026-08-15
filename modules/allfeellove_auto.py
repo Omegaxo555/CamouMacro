@@ -209,9 +209,11 @@ class AllfeelloveAuto:
         )
         print(f'[allfeellove_auto] País seleccionado: {result}')
 
+        age_filter = random.choice("41","34","46")
+
         result = self.automation.select_multiselect_option(
             ageFromSelect,
-            "41",
+            age_filter,
             search_selector=ageFromInput,
             timeout=5000,
         )
@@ -219,7 +221,7 @@ class AllfeelloveAuto:
 
         result = self.automation.select_multiselect_option(
             ageToSelect,
-            "41",
+            age_filter,
             search_selector=ageToInput,
             timeout=5000,
         )
@@ -418,13 +420,7 @@ class AllfeelloveAuto:
         except Exception as exc:
             print(f"[allfeellove_auto] No se pudo abrir el perfil: {exc}")
             return
-
-        try:
-            self.driver.page.wait_for_selector(textarea_selector, state="visible", timeout=20000)
-        except Exception:
-            print(f"[allfeellove_auto] La vista del perfil no está lista; no se pudo abrir el textarea del mensaje.")
-            return
-
+        
         try:
             like_button = self.driver.page.locator(like_selector)
             if like_button.count() > 0:
@@ -442,6 +438,12 @@ class AllfeelloveAuto:
                 print(f"[allfeellove_auto] Wink enviado a '{self.last_found_profile_name}'.")
         except Exception as exc:
             print(f"[allfeellove_auto] No se pudo enviar wink: {exc}")
+
+        try:
+            self.driver.page.wait_for_selector(textarea_selector, state="visible", timeout=20000)
+        except Exception:
+            print(f"[allfeellove_auto] La vista del perfil no está lista; no se pudo abrir el textarea del mensaje.")
+            return
 
         tone = random.choice(["flirty", "casual", "premium"])
         messages = PeopleTalkGenerator.build_message_set(
