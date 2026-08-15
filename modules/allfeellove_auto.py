@@ -390,35 +390,39 @@ class AllfeelloveAuto:
         return None, None, None
 
     def _interact_with_found_profile(self, card_locator) -> None:
-        like_button = card_locator.locator('button[data-test-id="file:search-profile click:like-profile"]')
-        view_profile_button = card_locator.locator('button[data-test-id="cmp:ui-button click:go-to-profile-via-button"]')
-        wink_button = self.driver.page.locator('button[data-test-id="cmp:ui-button click:on-wink"]')
-        textarea = self.driver.page.locator('textarea[data-test-id="cmp:ui-textarea message type-your-message"]')
-        send_button = self.driver.page.locator('button[data-test-id="cmp:ui-button click:send-message send"]')
+        like_selector = 'button[data-test-id="file:search-profile click:like-profile"]'
+        view_profile_selector = 'button[data-test-id="cmp:ui-button click:go-to-profile-via-button"]'
+        wink_selector = 'button[data-test-id="cmp:ui-button click:on-wink"]'
+        textarea_selector = 'textarea[data-test-id="cmp:ui-textarea message type-your-message"]'
+        send_selector = 'button[data-test-id="cmp:ui-button click:send-message send"]'
 
         try:
-            if like_button.count() > 0:
-                self.automation.wait_for_visible(like_button, timeout=15000)
-                self.automation.safe_click(like_button)
+            like_target = card_locator.locator(like_selector)
+            if like_target.count() > 0:
+                self.automation.wait_for_visible(like_target, timeout=15000)
+                like_target.click()
                 print(f"[allfeellove_auto] Like enviado a '{self.last_found_profile_name}'.")
         except Exception as exc:
             print(f"[allfeellove_auto] No se pudo dar Like: {exc}")
 
         try:
-            if view_profile_button.count() > 0:
-                self.automation.wait_for_visible(view_profile_button, timeout=15000)
-                self.automation.safe_click(view_profile_button)
-                print(f"[allfeellove_auto] Se abrió el perfil de '{self.last_found_profile_name}'.")
+            self.automation.wait_for_visible(view_profile_selector, timeout=15000)
+            self.automation.safe_click(view_profile_selector)
+            print(f"[allfeellove_auto] Se abrió el perfil de '{self.last_found_profile_name}'.")
         except Exception as exc:
             print(f"[allfeellove_auto] No se pudo abrir el perfil: {exc}")
-
-        self.driver.page.wait_for_timeout(2000)
+            return
 
         try:
-            if wink_button.count() > 0:
-                self.automation.wait_for_visible(wink_button, timeout=15000)
-                self.automation.safe_click(wink_button)
-                print(f"[allfeellove_auto] Wink enviado a '{self.last_found_profile_name}'.")
+            self.driver.page.wait_for_selector(textarea_selector, state="visible", timeout=20000)
+        except Exception:
+            print(f"[allfeellove_auto] La vista del perfil no está lista; no se pudo abrir el textarea del mensaje.")
+            return
+
+        try:
+            self.automation.wait_for_visible(wink_selector, timeout=15000)
+            self.automation.safe_click(wink_selector)
+            print(f"[allfeellove_auto] Wink enviado a '{self.last_found_profile_name}'.")
         except Exception as exc:
             print(f"[allfeellove_auto] No se pudo enviar wink: {exc}")
 
@@ -433,12 +437,13 @@ class AllfeelloveAuto:
 
         for index, message in enumerate(messages, start=1):
             try:
-                self.automation.wait_for_visible(textarea, timeout=15000)
-                self.automation.human_type(textarea, message)
-                self.automation.safe_click(send_button)
+                self.driver.page.wait_for_selector(textarea_selector, state="visible", timeout=20000)
+                self.automation.human_type(textarea_selector, message)
+                self.automation.safe_click(send_selector)
                 print(f"[allfeellove_auto] Mensaje {index}/5 enviado: {message}")
             except Exception as exc:
                 print(f"[allfeellove_auto] Error al enviar mensaje {index}/5: {exc}")
+                break
 
             if index < len(messages):
                 print(f"[allfeellove_auto] Esperando 5 segundos antes del siguiente mensaje...")
