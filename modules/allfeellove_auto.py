@@ -9,6 +9,7 @@ import traceback
 from core.camoufox_handler import CamoufoxHandler
 from modules.browser_automation import BrowserAutomation, HtmlElement
 from modules.InfoGeneration.peopleInfo_generator import PeopleInfoGenerator
+from modules.InfoGeneration.peopleTalk_generator import PeopleTalkGenerator
 
 
 class AllfeelloveAuto:
@@ -17,6 +18,8 @@ class AllfeelloveAuto:
     def __init__(self, driver: CamoufoxHandler):
         self.driver = driver
         self.automation = BrowserAutomation(driver.page) if driver.page else None
+        self.last_found_profile_name: str | None = None
+        self.last_found_profile_age: int | None = None
 
     def run(self) -> None:
         try:
@@ -191,13 +194,13 @@ class AllfeelloveAuto:
 
         result = self.automation.safe_click(filtersButton)
         print(f'[allfeellove_auto] Abriendo el apartado de filtros: {result}')
-        self.driver.page.wait_for_timeout(1000)
+        self.driver.page.wait_for_timeout(100)
 
         result = self.automation.select_multiselect_option(
             countrySelect,
             "United States",
             search_selector=countrySearchInput,
-            timeout=5000,
+            timeout=2000,
         )
         print(f'[allfeellove_auto] País seleccionado: {result}')
 
@@ -228,9 +231,13 @@ class AllfeelloveAuto:
         found_profile = self._scan_profiles_until_found(target_profiles, max_pages=25)
 
         if found_profile:
-            print(f"[allfeellove_auto] Búsqueda finalizada: '{target_profiles}' localizado.")
+            print(f"[allfeellove_auto] Búsqueda finalizada: '{self.last_found_profile_name}' ({self.last_found_profile_age}) localizado.")
         else:
             print(f"[allfeellove_auto] No se encontró ninguna de estas opciones: {target_profiles} después de revisar las páginas disponibles.")
+
+        #---------------------Darle Like al perfil y entrar al perfil--------------------#
+
+
 
     def _get_visible_profile_names(self) -> list[str]:
         selectors = [
@@ -382,6 +389,61 @@ class AllfeelloveAuto:
                 return name_option, age_option, card
         return None, None, None
 
+    def _interact_with_found_profile(self, card_locator) -> None:
+        like_button = card_locator.locator('button[data-test-id="file:search-profile click:like-profile"]')
+        view_profile_button = card_locator.locator('button[data-test-id="cmp:ui-button click:go-to-profile-via-button"]')
+        wink_button = self.driver.page.locator('button[data-test-id="cmp:ui-button click:on-wink"]')
+        textarea = self.driver.page.locator('textarea[data-test-id="cmp:ui-textarea message type-your-message"]')
+        send_button = self.driver.page.locator('button[data-test-id="cmp:ui-button click:send-message send"]')
+
+        try:
+            if like_button.count() > 0:
+                self.automation.wait_for_visible(like_button, timeout=15000)
+                self.automation.safe_click(like_button)
+                print(f"[allfeellove_auto] Like enviado a '{self.last_found_profile_name}'.")
+        except Exception as exc:
+            print(f"[allfeellove_auto] No se pudo dar Like: {exc}")
+
+        try:
+            if view_profile_button.count() > 0:
+                self.automation.wait_for_visible(view_profile_button, timeout=15000)
+                self.automation.safe_click(view_profile_button)
+                print(f"[allfeellove_auto] Se abrió el perfil de '{self.last_found_profile_name}'.")
+        except Exception as exc:
+            print(f"[allfeellove_auto] No se pudo abrir el perfil: {exc}")
+
+        self.driver.page.wait_for_timeout(2000)
+
+        try:
+            if wink_button.count() > 0:
+                self.automation.wait_for_visible(wink_button, timeout=15000)
+                self.automation.safe_click(wink_button)
+                print(f"[allfeellove_auto] Wink enviado a '{self.last_found_profile_name}'.")
+        except Exception as exc:
+            print(f"[allfeellove_auto] No se pudo enviar wink: {exc}")
+
+        tone = random.choice(["flirty", "casual", "premium"])
+        messages = PeopleTalkGenerator.build_message_set(
+            count=5,
+            name=self.last_found_profile_name,
+            age=self.last_found_profile_age,
+            personality="warm, playful, and confident",
+            tone=tone,
+        )
+
+        for index, message in enumerate(messages, start=1):
+            try:
+                self.automation.wait_for_visible(textarea, timeout=15000)
+                self.automation.human_type(textarea, message)
+                self.automation.safe_click(send_button)
+                print(f"[allfeellove_auto] Mensaje {index}/5 enviado: {message}")
+            except Exception as exc:
+                print(f"[allfeellove_auto] Error al enviar mensaje {index}/5: {exc}")
+
+            if index < len(messages):
+                print(f"[allfeellove_auto] Esperando 5 segundos antes del siguiente mensaje...")
+                self.driver.page.wait_for_timeout(5000)
+
     def _go_to_next_profile_page(self) -> bool:
         next_page_selector = (
             'button[data-test-id="cmp:ui-button click:change-page-options-current-page next"]'
@@ -409,9 +471,11 @@ class AllfeelloveAuto:
 
             matched_name, matched_age, matched_card = self._find_any_matching_profile_card(target_profiles)
             if matched_card is not None:
-                print(f"[allfeellove_auto] Perfil '{matched_name}' ({matched_age}) encontrado en la página {page_index}. Abriendo tarjeta...")
+                self.last_found_profile_name = matched_name
+                self.last_found_profile_age = matched_age
+                print(f"[allfeellove_auto] Perfil '{matched_name}' ({matched_age}) encontrado en la página {page_index}.")
                 try:
-                    matched_card.click()
+                    self._interact_with_found_profile(matched_card)
                     return True
                 except Exception:
                     print(f"[allfeellove_auto] No se pudo abrir la tarjeta del perfil '{matched_name}' ({matched_age}), pero sí fue localizado.")
