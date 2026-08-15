@@ -229,9 +229,9 @@ class BrowserAutomation:
         search_selector: Optional[Union[str, HtmlElement]] = None,
         timeout: Optional[int] = None,
     ) -> bool:
-        """Selecciona una opción dentro de un multiselect Vue/Allfeellove."""
+        """Selecciona una opción dentro de un multiselect Vue/Allfeellove con tiempos mínimos."""
         timeout_value = timeout or self.default_timeout
-        short_timeout = min(timeout_value, 4000)
+        short_timeout = min(timeout_value, 2000)
         container_ref = str(container_selector)
         is_country_multiselect = "country" in container_ref.lower() or "select-country" in container_ref.lower()
 
@@ -256,52 +256,41 @@ class BrowserAutomation:
                 except PlaywrightError:
                     pass
 
-            if is_country_multiselect and search_selector is not None:
-                try:
-                    search_box = self.locator(search_selector, short_timeout)
-                    if search_box.count() > 0:
-                        search_box.first.wait_for(state="visible", timeout=short_timeout)
-                        search_box.first.fill(option_text)
-                        time.sleep(random.uniform(0.08, 0.18))
-
-                        option_candidates = self.page.locator("[role='option']")
-                        for index in range(min(option_candidates.count(), 8)):
-                            candidate = option_candidates.nth(index)
-                            try:
-                                candidate_text = candidate.text_content() or ""
-                            except Exception:
-                                candidate_text = ""
-                            if candidate_text and option_text.lower() in candidate_text.lower():
-                                candidate.click()
-                                return True
-
-                        search_box.first.press("ArrowDown")
-                        search_box.first.press("Enter")
-                        return True
-                except PlaywrightError:
-                    pass
-
             if search_selector is not None:
                 try:
                     search_box = self.locator(search_selector, short_timeout)
                     if search_box.count() > 0:
+                        search_box.first.wait_for(state="visible", timeout=short_timeout)
                         search_box.first.fill("")
                         search_box.first.press("Control+A")
                         search_box.first.fill(option_text)
-                        time.sleep(random.uniform(0.06, 0.18))
+                        time.sleep(random.uniform(0.02, 0.05))
+
+                        option_candidates = self.page.locator("[role='option']")
+                        candidate_count = min(option_candidates.count(), 6)
+                        for index in range(candidate_count):
+                            candidate = option_candidates.nth(index)
+                            candidate_text = (candidate.text_content() or "").strip()
+                            if candidate_text and option_text.lower() in candidate_text.lower():
+                                candidate.click()
+                                return True
+
+                        if is_country_multiselect:
+                            search_box.first.press("ArrowDown")
+                            search_box.first.press("Enter")
+                            return True
                 except PlaywrightError:
                     pass
 
-            candidate_selectors = [
+            direct_option_selectors = [
                 f"div[role='option']:has-text('{option_text}')",
-                f"div[role='listbox'] div:has-text('{option_text}')",
                 f"li:has-text('{option_text}')",
                 f"span:has-text('{option_text}')",
                 f"[role='option'] >> text={option_text}",
                 f"text={option_text}",
             ]
 
-            for selector in candidate_selectors:
+            for selector in direct_option_selectors:
                 try:
                     candidate = self.page.locator(selector).first
                     if candidate.is_visible():
