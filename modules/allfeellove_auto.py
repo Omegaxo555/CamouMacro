@@ -123,7 +123,7 @@ class AllfeelloveAuto:
 
         #--------Saltando a la reclamar los credits-------#
 
-        print('[allfeellove_auto] Esperando por inicio de sesion')
+        print('[allfeellove_auto] Esperando por inicio de sesion 1Minute-aprox')
         self.driver.page.wait_for_load_state("domcontentloaded", timeout=self.driver.timeout)
 
         nextLets_button = HtmlElement.css('button[data-test-id="cmp:ui-button click:next Let’s do it!"]')
@@ -220,6 +220,39 @@ class AllfeelloveAuto:
         self.automation.safe_click(searchPeople)
         print(f'[allfeellove_auto] Filtros Terminados...')
 
+        #--------------------Seccion de Buscar Perfil--------------------#
+        target_name = "Zol"
+        name_selector = 'p[data-test-id="file:person person-name"]'
+        next_page_button = HtmlElement.css('button[data-test-id="cmp:ui-button click:change-page-options-current-page next"]')
+
+        page_index = 1
+        max_pages = 25
+        found_profile = False
+
+        while page_index <= max_pages:
+            visible_names = self.driver.page.locator(name_selector).all_text_contents()
+            visible_names = [name.strip() for name in visible_names if name and name.strip()]
+            print(f"[allfeellove_auto] Página {page_index}. Nombres visibles: {visible_names[:12]}")
+
+            if any(target_name.lower() in name.lower() for name in visible_names):
+                print(f"[allfeellove_auto] Perfil '{target_name}' encontrado en la página {page_index}.")
+                found_profile = True
+                break
+
+            print(f"[allfeellove_auto] '{target_name}' no encontrado. Avanzando con Next...")
+
+            if not self.automation.safe_click(next_page_button):
+                print(f"[allfeellove_auto] El botón Next no está disponible. Se terminó la búsqueda.")
+                break
+
+            self.driver.page.wait_for_load_state("networkidle", timeout=self.driver.timeout)
+            self.driver.page.wait_for_timeout(800)
+            page_index += 1
+
+        if not found_profile:
+            print(f"[allfeellove_auto] No se encontró '{target_name}' después de revisar {max_pages} páginas.")
+        else:
+            print(f"[allfeellove_auto] Búsqueda finalizada: '{target_name}' localizado.")
 
 
 def run_allfeellove_auto(driver: CamoufoxHandler) -> None:

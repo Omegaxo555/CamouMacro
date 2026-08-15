@@ -45,10 +45,24 @@ class BrowserAutomation:
     validaciones y waits controlados.
     """
 
-    def __init__(self, page: Page, default_timeout: int = 10000, debug: bool = True):
+    def __init__(self, page: Page, default_timeout: int = 3000, debug: bool = True):
         self.page = page
         self.default_timeout = default_timeout
         self.debug = debug
+
+    def _move_mouse_to_locator(self, locator: Locator) -> bool:
+        """Mueve el cursor directamente al centro del elemento sin forzar largos waits."""
+        try:
+            box = locator.bounding_box()
+            if not box:
+                return False
+            x = box["x"] + (box["width"] / 2)
+            y = box["y"] + (box["height"] / 2)
+            self.page.mouse.move(x, y, steps=12)
+            time.sleep(random.uniform(0.04, 0.12))
+            return True
+        except PlaywrightError:
+            return False
 
     def _debug(self, message: str) -> None:
         if self.debug:
@@ -167,11 +181,31 @@ class BrowserAutomation:
 
         try:
             locator = self.locator(selector, timeout_value)
-            locator.wait_for(state="visible", timeout=timeout_value)
+            if locator.count() == 0:
+                self._debug(f"No hay elementos para '{resolved}'")
+                return False
 
-            # Playwright ya hace el scroll necesario antes del click.
-            # No hacer scroll manual ni hover aquí porque eso dispara más
-            # movimientos del viewport y puede repetir la acción varias veces.
+            # Evitar waits largos antes del movimiento del cursor. Cuando el elemento ya
+            # está visible, avanzamos de inmediato y movemos el mouse al centro.
+            try:
+                if not locator.is_visible():
+                    locator.scroll_into_view_if_needed()
+                    time.sleep(random.uniform(0.05, 0.15))
+            except PlaywrightError:
+                pass
+
+            # Mover el cursor directamente al punto objetivo reduce la pausa artificial
+            # y hace la acción más humana sin esperar 10 segundos por un timeout.
+            if self._move_mouse_to_locator(locator):
+                try:
+                    x = locator.bounding_box()["x"] + (locator.bounding_box()["width"] / 2)
+                    y = locator.bounding_box()["y"] + (locator.bounding_box()["height"] / 2)
+                    self.page.mouse.click(x, y, button="left", click_count=click_count)
+                    self._debug(f"Click exitoso en '{resolved}' via mouse move")
+                    return True
+                except PlaywrightError:
+                    pass
+
             try:
                 locator.click(force=force, click_count=click_count)
                 self._debug(f"Click exitoso en '{resolved}'")
