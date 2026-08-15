@@ -170,10 +170,17 @@ class AllfeelloveAuto:
 
         accountSearch = HtmlElement.css('#AccountSearch')
         filtersButton = HtmlElement.css('[data-test-id="file:extend-search click:show-filter filters"]')
-        countrySelect = HtmlElement.xpath("/html/body/div[1]/div/div/main/div[1]/div/div[2]/div/div/div[2]/div[1]/div[2]/div[1]/div[2]/div[1]/div[1]/div[1]/div[1]/div[1]/div[2]/div[1]/div[1]/div[1]")
-        countrySearchInput = HtmlElement.css('input[placeholder*="Select country"], input[placeholder*="Select Country"], .multiselect__input')
-        fromAge = HtmlElement.css('input[placeholder="From"]')
-        toAge = HtmlElement.css('input[placeholder="To"]')
+
+        countrySelect = HtmlElement.css('div[data-test-id="cmp:ui-select search-country select-country"]')
+        countrySearchInput = HtmlElement.css('div[data-test-id="cmp:ui-select search-country select-country"] input.multiselect__input')
+
+        ageFromSelect = HtmlElement.css('div[data-test-id="cmp:ui-select search-age-from from"]')
+        ageFromInput = HtmlElement.css('div[data-test-id="cmp:ui-select search-age-from from"] input.multiselect__input')
+
+        ageToSelect = HtmlElement.css('div[data-test-id="cmp:ui-select search-age-to to"]')
+        ageToInput = HtmlElement.css('div[data-test-id="cmp:ui-select search-age-to to"] input.multiselect__input')
+
+        genderSelect = HtmlElement.css('div[data-test-id="cmp:ui-select search-gender"]')
         searchPeople = HtmlElement.css('button[data-test-id="cmp:ui-button click:show-people show-people"]')
 
         result = self.automation.safe_click(accountSearch)
@@ -191,13 +198,24 @@ class AllfeelloveAuto:
         )
         print(f'[allfeellove_auto] País seleccionado: {result}')
 
-        self.automation.safe_click(fromAge)
-        result = self.automation.human_type(fromAge, "41")
-        print(f'[allfeellove_auto] From Filter edited: {result}')
+        result = self.automation.select_multiselect_option(
+            ageFromSelect,
+            "41",
+            search_selector=ageFromInput,
+            timeout=10000,
+        )
+        print(f'[allfeellove_auto] Edad desde seleccionada: {result}')
 
-        self.automation.safe_click(toAge)
-        result = self.automation.human_type(toAge, "41")
-        print(f'[allfeellove_auto] To filter edited: {result}')
+        result = self.automation.select_multiselect_option(
+            ageToSelect,
+            "41",
+            search_selector=ageToInput,
+            timeout=10000,
+        )
+        print(f'[allfeellove_auto] Edad hasta seleccionada: {result}')
+
+        result = self.automation.safe_click(genderSelect)
+        print(f'[allfeellove_auto] Apertura selector de género: {result}')
 
         self.automation.safe_click(searchPeople)
         print(f'[allfeellove_auto] Filtros Terminados...')

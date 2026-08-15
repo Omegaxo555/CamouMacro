@@ -24,7 +24,7 @@ class CamoufoxHandler:
         profile_template: Optional[str] = None,
         headless: bool = True,
         timeout: int = 30000,
-        window_size: Optional[tuple[int, int]] = (400, 600),
+        window_size: Optional[tuple[int, int]] = (1920, 1080),
         tor_ports: Optional[list[int]] = None,
     ):
 
@@ -34,7 +34,7 @@ class CamoufoxHandler:
         self.profile_template = profile_template
         self.headless = headless
         self.timeout = timeout
-        self.window_size = window_size or (400, 600)
+        self.window_size = window_size or (1920, 1080)
         self.tor_ports = tor_ports or [9050, 9150, 9051, 9052]
         self._tor_port_index = 0
 
@@ -205,7 +205,7 @@ class CamoufoxHandler:
 
             logging.info("CamoufoxDriver inicializado exitosamente.")
             logging.info(f"Timeout por defecto del navegador: {self.timeout}ms")
-            logging.info(f"Ventana de navegador configurada en {self.window_size[0]}x{self.window_size[1]} (formato tablet/vertical).")
+            logging.info(f"Ventana de navegador configurada en {self.window_size[0]}x{self.window_size[1]} (modo maximizado).")
             return True
 
         except PlaywrightError as e:
