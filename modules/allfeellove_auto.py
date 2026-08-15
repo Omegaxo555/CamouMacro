@@ -194,7 +194,7 @@ class AllfeelloveAuto:
             countrySelect,
             "United States",
             search_selector=countrySearchInput,
-            timeout=10000,
+            timeout=5000,
         )
         print(f'[allfeellove_auto] País seleccionado: {result}')
 
@@ -202,7 +202,7 @@ class AllfeelloveAuto:
             ageFromSelect,
             "41",
             search_selector=ageFromInput,
-            timeout=10000,
+            timeout=5000,
         )
         print(f'[allfeellove_auto] Edad desde seleccionada: {result}')
 
@@ -210,7 +210,7 @@ class AllfeelloveAuto:
             ageToSelect,
             "41",
             search_selector=ageToInput,
-            timeout=10000,
+            timeout=5000,
         )
         print(f'[allfeellove_auto] Edad hasta seleccionada: {result}')
 
@@ -230,23 +230,54 @@ class AllfeelloveAuto:
             print(f"[allfeellove_auto] No se encontró '{target_name}' después de revisar las páginas disponibles.")
 
     def _get_visible_profile_names(self) -> list[str]:
-        name_selector = 'p[data-test-id="file:person person-name"]'
-        visible_names = self.driver.page.locator(name_selector).all_text_contents()
-        names = [name.strip() for name in visible_names if name and name.strip()]
-        return [name for name in names if not any(token in name.lower() for token in ["ad", "sponsored", "anuncio", "promo"])][:12]
+        selectors = [
+            'p[data-test-id*="person-name"]',
+            'p.ui-typography.color.name',
+            'p.name',
+            '[data-test-id*="person person-name"]',
+        ]
 
-    def _get_profile_cards(self):
-        return self.driver.page.locator('[data-test-id="file:person person-name"]').locator("..")
+        names: list[str] = []
+        for selector in selectors:
+            try:
+                visible_names = self.driver.page.locator(selector).all_text_contents()
+                names.extend(name.strip() for name in visible_names if name and name.strip())
+            except Exception:
+                continue
+
+        filtered = []
+        for name in names:
+            lowered = name.lower()
+            if any(token in lowered for token in ["ad", "sponsored", "anuncio", "promo"]):
+                continue
+            filtered.append(name)
+
+        return filtered[:12]
 
     def _find_profile_card_by_name(self, target_name: str):
-        candidate_names = self.driver.page.locator('p[data-test-id="file:person person-name"]')
-        count = candidate_names.count()
+        selectors = [
+            'p[data-test-id*="person-name"]',
+            'p.ui-typography.color.name',
+            'p.name',
+        ]
 
-        for index in range(count):
-            name = candidate_names.nth(index).text_content()
-            if name and target_name.lower() in str(name).lower():
-                card = candidate_names.nth(index).locator("..")
-                return card
+        for selector in selectors:
+            candidates = self.driver.page.locator(selector)
+            try:
+                count = candidates.count()
+            except Exception:
+                continue
+
+            for index in range(count):
+                try:
+                    name = candidates.nth(index).text_content()
+                except Exception:
+                    continue
+                if name and target_name.lower() in str(name).lower():
+                    try:
+                        return candidates.nth(index).locator("../..")
+                    except Exception:
+                        return candidates.nth(index).locator("..")
         return None
 
     def _has_profile_name(self, target_name: str) -> bool:
@@ -254,15 +285,29 @@ class AllfeelloveAuto:
         return any(target_name.lower() in name.lower() for name in names)
 
     def _go_to_next_profile_page(self) -> bool:
-        next_page_button = HtmlElement.css('button[data-test-id="cmp:ui-button click:change-page-options-current-page next"]')
-        if not self.automation.safe_click(next_page_button):
+        next_page_selector = 'button[data-test-id*="change-page-options-current-page"]'
+        next_button = self.driver.page.locator(next_page_selector)
+
+        if next_button.count() == 0:
             return False
-        self.driver.page.wait_for_load_state("networkidle", timeout=self.driver.timeout)
-        self.driver.page.wait_for_timeout(400)
-        return True
+
+        try:
+            if not next_button.first.is_visible():
+                return False
+        except Exception:
+            return False
+
+        self.driver.page.wait_for_timeout(3000)
+        try:
+            next_button.first.click()
+            self.driver.page.wait_for_load_state("networkidle", timeout=self.driver.timeout)
+            return True
+        except Exception:
+            return False
 
     def _scan_profiles_until_found(self, target_name: str, max_pages: int = 25) -> bool:
         for page_index in range(1, max_pages + 1):
+            self.driver.page.wait_for_timeout(1500)
             visible_names = self._get_visible_profile_names()
             print(f"[allfeellove_auto] Página {page_index}. Nombres visibles: {visible_names[:12]}")
 
