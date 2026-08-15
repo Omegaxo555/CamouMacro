@@ -78,12 +78,12 @@ class AllfeelloveAuto:
                 print(f"[allfeellove_auto] No existe el elemento de {label}. Revisa el selector o la carga de la página.")
                 return
 
-        if self.automation.element_exists(cookies_button):
-            print(f"[allfeellove_auto] Intentando click en: {cookies_button}")
-            result = self.automation.safe_click(cookies_button)
-            print(f"[allfeellove_auto] Resultado click cookies: {result}")
-        else:
-            print(f"[allfeellove_auto] Cookies_button not found")
+        #if self.automation.element_exists(cookies_button):
+        #    print(f"[allfeellove_auto] Intentando click en: {cookies_button}")
+        #    result = self.automation.safe_click(cookies_button)
+        #    print(f"[allfeellove_auto] Resultado click cookies: {result}")
+        #else:
+        #    print(f"[allfeellove_auto] Cookies_button not found")
 
         print(f"[allfeellove_auto] Intentando click en: {gender_button}")
         result = self.automation.safe_click(gender_button)
