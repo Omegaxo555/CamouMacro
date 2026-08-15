@@ -234,7 +234,11 @@ class BrowserAutomation:
         short_timeout = min(timeout_value, 4000)
         try:
             container = self.locator(container_selector, short_timeout)
-            container.wait_for(state="visible", timeout=short_timeout)
+            try:
+                if not container.is_visible():
+                    container.wait_for(state="visible", timeout=min(short_timeout, 3000))
+            except PlaywrightError:
+                pass
 
             try:
                 selected_text = container.locator("span.multiselect__single").text_content()

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 import random
+import time
 import traceback
 
 from core.camoufox_handler import CamoufoxHandler
@@ -235,30 +236,50 @@ class AllfeelloveAuto:
             'p.ui-typography.color.name',
             'p.name',
             '[data-test-id*="person person-name"]',
+            '[data-test-id*="person-name" i]',
         ]
 
         names: list[str] = []
         for selector in selectors:
             try:
                 visible_names = self.driver.page.locator(selector).all_text_contents()
-                names.extend(name.strip() for name in visible_names if name and name.strip())
+                for name in visible_names:
+                    cleaned = (name or "").strip()
+                    if not cleaned:
+                        continue
+                    lowered = cleaned.lower()
+                    if any(token in lowered for token in ["ad", "sponsored", "anuncio", "promo"]):
+                        continue
+                    names.append(cleaned)
             except Exception:
                 continue
 
-        filtered = []
+        seen = set()
+        unique_names = []
         for name in names:
-            lowered = name.lower()
-            if any(token in lowered for token in ["ad", "sponsored", "anuncio", "promo"]):
-                continue
-            filtered.append(name)
+            if name.lower() not in seen:
+                seen.add(name.lower())
+                unique_names.append(name)
 
-        return filtered[:12]
+        return unique_names[:12]
+
+    def _wait_for_profile_names(self, timeout_seconds: float = 8.0) -> list[str]:
+        deadline = time.monotonic() + timeout_seconds
+        last_names: list[str] = []
+        while time.monotonic() < deadline:
+            names = self._get_visible_profile_names()
+            if names:
+                last_names = names
+                break
+            self.driver.page.wait_for_timeout(400)
+        return last_names
 
     def _find_profile_card_by_name(self, target_name: str):
         selectors = [
             'p[data-test-id*="person-name"]',
             'p.ui-typography.color.name',
             'p.name',
+            '[data-test-id*="person person-name"]',
         ]
 
         for selector in selectors:
@@ -307,8 +328,7 @@ class AllfeelloveAuto:
 
     def _scan_profiles_until_found(self, target_name: str, max_pages: int = 25) -> bool:
         for page_index in range(1, max_pages + 1):
-            self.driver.page.wait_for_timeout(1500)
-            visible_names = self._get_visible_profile_names()
+            visible_names = self._wait_for_profile_names(timeout_seconds=8.0)
             print(f"[allfeellove_auto] Página {page_index}. Nombres visibles: {visible_names[:12]}")
 
             matched_card = self._find_profile_card_by_name(target_name)
