@@ -202,7 +202,7 @@ class AllfeelloveAuto:
 
         result = self.automation.select_multiselect_option(
             ageFromSelect,
-            "41",
+            "34",
             search_selector=ageFromInput,
             timeout=5000,
         )
@@ -210,7 +210,7 @@ class AllfeelloveAuto:
 
         result = self.automation.select_multiselect_option(
             ageToSelect,
-            "41",
+            "46",
             search_selector=ageToInput,
             timeout=5000,
         )
@@ -223,13 +223,13 @@ class AllfeelloveAuto:
         print(f'[allfeellove_auto] Filtros Terminados...')
 
         #--------------------Seccion de Buscar Perfil--------------------#
-        target_name = "Zol"
-        found_profile = self._scan_profiles_until_found(target_name, max_pages=25)
+        target_names = ["Zol", "Anna", "Kathe"]
+        found_profile = self._scan_profiles_until_found(target_names, max_pages=25)
 
         if found_profile:
-            print(f"[allfeellove_auto] Búsqueda finalizada: '{target_name}' localizado.")
+            print(f"[allfeellove_auto] Búsqueda finalizada: '{target_names}' localizado.")
         else:
-            print(f"[allfeellove_auto] No se encontró '{target_name}' después de revisar las páginas disponibles.")
+            print(f"[allfeellove_auto] No se encontró ninguna de estas opciones: {target_names} después de revisar las páginas disponibles.")
 
     def _get_visible_profile_names(self) -> list[str]:
         selectors = [
@@ -306,8 +306,17 @@ class AllfeelloveAuto:
         names = self._get_visible_profile_names()
         return any(target_name.lower() in name.lower() for name in names)
 
+    def _find_any_matching_profile_card(self, target_names: list[str]):
+        for name_option in target_names:
+            card = self._find_profile_card_by_name(name_option)
+            if card is not None:
+                return name_option, card
+        return None, None
+
     def _go_to_next_profile_page(self) -> bool:
-        next_page_selector = 'button[data-test-id*="change-page-options-current-page"]'
+        next_page_selector = (
+            'button[data-test-id="cmp:ui-button click:change-page-options-current-page next"]'
+        )
 
         for attempt in range(1, 6):
             try:
@@ -324,22 +333,22 @@ class AllfeelloveAuto:
 
         return False
 
-    def _scan_profiles_until_found(self, target_name: str, max_pages: int = 25) -> bool:
+    def _scan_profiles_until_found(self, target_names: list[str], max_pages: int = 25) -> bool:
         for page_index in range(1, max_pages + 1):
             visible_names = self._wait_for_profile_names(timeout_seconds=8.0)
             print(f"[allfeellove_auto] Página {page_index}. Nombres visibles: {visible_names[:12]}")
 
-            matched_card = self._find_profile_card_by_name(target_name)
+            matched_name, matched_card = self._find_any_matching_profile_card(target_names)
             if matched_card is not None:
-                print(f"[allfeellove_auto] Perfil '{target_name}' encontrado en la página {page_index}. Abriendo tarjeta...")
+                print(f"[allfeellove_auto] Perfil '{matched_name}' encontrado en la página {page_index}. Abriendo tarjeta...")
                 try:
                     matched_card.click()
                     return True
                 except Exception:
-                    print(f"[allfeellove_auto] No se pudo abrir la tarjeta del perfil '{target_name}', pero sí fue localizado.")
+                    print(f"[allfeellove_auto] No se pudo abrir la tarjeta del perfil '{matched_name}', pero sí fue localizado.")
                     return True
 
-            print(f"[allfeellove_auto] '{target_name}' no encontrado. Avanzando con Next...")
+            print(f"[allfeellove_auto] Ninguno de {target_names} fue encontrado. Avanzando con Next...")
             if not self._go_to_next_profile_page():
                 print(f"[allfeellove_auto] El botón Next no está disponible. Se terminó la búsqueda.")
                 return False
