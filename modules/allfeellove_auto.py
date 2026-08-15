@@ -404,32 +404,45 @@ class AllfeelloveAuto:
         return None, None, None
 
     def _ensure_chat_mode(self) -> bool:
-        """Si el perfil está en modo Mail, cambia a Chat para continuar la conversación."""
+        """Verifica si la vista está en Mail y la alterna a Chat antes de enviar mensajes."""
         try:
-            mail_label = self.driver.page.locator('#mail-title')
-            if mail_label.count() > 0:
-                title_text = (mail_label.first.text_content() or "").strip()
-                if title_text and title_text.lower() == "mail":
-                    switch_selector = 'button[data-test-id="cmp:ui-button click:is-chat-visible-true change-to-chat"], button:has-text("Change to chat")'
-                    switch_button = self.driver.page.locator(switch_selector).first
-                    if switch_button.count() > 0:
-                        self.driver.page.wait_for_timeout(500)
-                        if switch_button.is_visible():
-                            print("[allfeellove_auto] Detectado modo Mail. Cambiando a Chat...")
-                            switch_button.click()
-                            self.driver.page.wait_for_timeout(1500)
-                            return True
-                    return False
+            switch_selector = (
+                'button[data-test-id*="change-to-chat"], '
+                'button:has-text("Change to chat"), '
+                'button:has-text("SwitchMode")'
+            )
+            mail_title_selector = '#mail-title, p:has-text("Mail"), p:has-text("mail")'
 
-            chat_label = self.driver.page.locator('p:has-text("Chat")')
-            if chat_label.count() > 0 and chat_label.first.is_visible():
-                print("[allfeellove_auto] Ya está en modo Chat.")
-                return True
+            for attempt in range(2):
+                mail_title = self.driver.page.locator(mail_title_selector)
+                if mail_title.count() > 0:
+                    for i in range(min(mail_title.count(), 5)):
+                        text = (mail_title.nth(i).text_content() or "").strip().lower()
+                        if "mail" in text:
+                            switch_button = self.driver.page.locator(switch_selector).first
+                            if switch_button.count() > 0 and switch_button.is_visible():
+                                print("[allfeellove_auto] Detectado modo Mail. Cambiando a Chat...")
+                                switch_button.click()
+                                self.driver.page.wait_for_timeout(600)
+                                break
+                            return False
 
-            return True
+                chat_visible = self.driver.page.locator('p:has-text("Chat"), div:has-text("Chat")').first
+                if chat_visible.count() > 0 and chat_visible.is_visible():
+                    print("[allfeellove_auto] Ya está en modo Chat.")
+                    return True
+
+                textarea_ready = self.driver.page.locator('textarea[data-test-id="cmp:ui-textarea message type-your-message"]').first
+                if textarea_ready.count() > 0 and textarea_ready.is_visible():
+                    print("[allfeellove_auto] El textarea de chat ya está disponible.")
+                    return True
+
+                self.driver.page.wait_for_timeout(250)
+
+            return False
         except Exception as exc:
             print(f"[allfeellove_auto] No se pudo verificar el modo de chat: {exc}")
-            return True
+            return False
 
     def _interact_with_found_profile(self, card_locator) -> None:
         view_profile_selector = 'button[data-test-id="cmp:ui-button click:go-to-profile-via-button"]'
@@ -442,7 +455,7 @@ class AllfeelloveAuto:
             view_button = card_locator.locator(view_profile_selector)
             if view_button.count() == 0:
                 view_button = self.driver.page.locator(view_profile_selector).first
-            view_button.wait_for(state="visible", timeout=15000)
+            view_button.wait_for(state="visible", timeout=8000)
             view_button.click()
             print(f"[allfeellove_auto] Se abrió el perfil de '{self.last_found_profile_name}'.")
         except Exception as exc:
@@ -452,7 +465,7 @@ class AllfeelloveAuto:
         try:
             like_button = self.driver.page.locator(like_selector)
             if like_button.count() > 0:
-                like_button.first.wait_for(state="visible", timeout=15000)
+                like_button.first.wait_for(state="visible", timeout=8000)
                 like_button.first.click()
                 print(f"[allfeellove_auto] Like enviado a '{self.last_found_profile_name}'.")
         except Exception as exc:
@@ -461,7 +474,7 @@ class AllfeelloveAuto:
         try:
             wink_button = self.driver.page.locator(wink_selector)
             if wink_button.count() > 0:
-                wink_button.first.wait_for(state="visible", timeout=15000)
+                wink_button.first.wait_for(state="visible", timeout=8000)
                 wink_button.first.click()
                 print(f"[allfeellove_auto] Wink enviado a '{self.last_found_profile_name}'.")
         except Exception as exc:
@@ -472,7 +485,7 @@ class AllfeelloveAuto:
             return
 
         try:
-            self.driver.page.wait_for_selector(textarea_selector, state="visible", timeout=20000)
+            self.driver.page.wait_for_selector(textarea_selector, state="visible", timeout=10000)
         except Exception:
             print(f"[allfeellove_auto] La vista del perfil no está lista; no se pudo abrir el textarea del mensaje.")
             return
@@ -488,7 +501,7 @@ class AllfeelloveAuto:
 
         for index, message in enumerate(messages, start=1):
             try:
-                self.driver.page.wait_for_selector(textarea_selector, state="visible", timeout=20000)
+                self.driver.page.wait_for_selector(textarea_selector, state="visible", timeout=10000)
                 self.automation.human_type(textarea_selector, message)
                 self.automation.safe_click(send_selector)
                 print(f"[allfeellove_auto] Mensaje {index}/5 enviado: {message}")
@@ -497,8 +510,8 @@ class AllfeelloveAuto:
                 break
 
             if index < len(messages):
-                print(f"[allfeellove_auto] Esperando 5 segundos antes del siguiente mensaje...")
-                self.driver.page.wait_for_timeout(5000)
+                print(f"[allfeellove_auto] Esperando 1.5 segundos antes del siguiente mensaje...")
+                self.driver.page.wait_for_timeout(1500)
 
     def _go_to_next_profile_page(self) -> bool:
         next_page_selector = (
@@ -509,14 +522,14 @@ class AllfeelloveAuto:
             try:
                 next_button = self.driver.page.locator(next_page_selector)
                 if next_button.count() > 0 and next_button.first.is_visible():
-                    self.driver.page.wait_for_timeout(3000)
+                    self.driver.page.wait_for_timeout(800)
                     next_button.first.click()
-                    self.driver.page.wait_for_load_state("networkidle", timeout=self.driver.timeout)
+                    self.driver.page.wait_for_load_state("networkidle", timeout=min(self.driver.timeout, 15000))
                     return True
             except Exception:
                 pass
 
-            self.driver.page.wait_for_timeout(1000)
+            self.driver.page.wait_for_timeout(300)
 
         return False
 
