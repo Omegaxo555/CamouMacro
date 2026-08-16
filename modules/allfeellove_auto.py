@@ -276,7 +276,7 @@ class AllfeelloveAuto:
                         continue
 
                     lowered = text.lower()
-                    if any(token in lowered for token in ["ad", "sponsored", "anuncio", "promo", "search", "results", "no matches"]):
+                    if any(token in lowered for token in ["ad", "sponsored", "anuncio", "promo", "search", "results", "no matches", "profile", "profiles"]):
                         continue
 
                     key = self._normalise_text(text)
@@ -344,15 +344,17 @@ class AllfeelloveAuto:
         if cards:
             return cards
 
-        fallback = self.driver.page.locator('article, section, div').filter(
-            has='p[data-test-id*="person-name"], p.ui-typography.color.name, p.name'
-        )
+        fallback = self.driver.page.locator('article, section, div, li')
         try:
             for index in range(min(fallback.count(), 80)):
                 card = fallback.nth(index)
                 try:
-                    if card.is_visible():
-                        cards.append(card)
+                    if not card.is_visible():
+                        continue
+                    inner_text = card.text_content() or ""
+                    if not any(token in inner_text.lower() for token in ["person-name", "ui-typography", "name"]):
+                        continue
+                    cards.append(card)
                 except Exception:
                     continue
         except Exception:
