@@ -247,58 +247,20 @@ class AllfeelloveAuto:
 
 
     def _get_visible_profile_names(self) -> list[str]:
-        selectors = [
-            'p[data-test-id*="person-name"]',
-            'p.ui-typography.color.name',
-            'p.name',
-            '[data-test-id*="person person-name"]',
-            '[data-test-id*="person-name" i]',
-            '[class*="name" i]',
-            '[data-testid*="name" i]',
-            'h3, h4, h5',
-        ]
-
         names: list[str] = []
         seen: set[str] = set()
 
-        for selector in selectors:
+        for card in self._collect_profile_cards():
             try:
-                locator = self.driver.page.locator(selector)
-                for element in locator.all():
-                    try:
-                        if not element.is_visible():
-                            continue
-                    except Exception:
-                        continue
-
-                    text = (element.text_content() or "").strip()
-                    if not text:
-                        continue
-
-                    lowered = text.lower()
-                    if any(token in lowered for token in ["ad", "sponsored", "anuncio", "promo", "search", "results", "no matches", "profile", "profiles"]):
-                        continue
-
-                    key = self._normalise_text(text)
-                    if not key or key in seen:
-                        continue
-                    seen.add(key)
-                    names.append(text)
+                name_text, _ = self._extract_name_and_age_from_card(card)
             except Exception:
                 continue
 
-        if not names:
-            try:
-                body_text = (self.driver.page.locator("body").inner_text() or "")
-                tokens = re.findall(r"\b[A-Z][a-z]{2,}(?:\s+[A-Z][a-z]{2,})?\b", body_text)
-                for token in tokens:
-                    key = self._normalise_text(token)
-                    if not key or key in seen:
-                        continue
-                    seen.add(key)
-                    names.append(token.strip())
-            except Exception:
-                pass
+            if not name_text or name_text in seen:
+                continue
+
+            seen.add(name_text)
+            names.append(name_text)
 
         return names[:12]
 
@@ -321,63 +283,85 @@ class AllfeelloveAuto:
         return " ".join(value.split())
 
     def _collect_profile_cards(self):
-        """Devuelve las tarjetas visibles de resultados en una sola pasada por el DOM."""
-        card_selectors = [
-            '[data-test-id*="search-item"]',
+        """Busca solo tarjetas reales de resultados, no menús ni encabezados."""
+        selectors = [
             '[data-test-id*="file:search-item"]',
+            'div.search-profile-card',
+            '[data-test-id*="search-item"]',
         ]
 
         cards = []
-        for selector in card_selectors:
+        seen: set[str] = set()
+
+        for selector in selectors:
             try:
                 locator = self.driver.page.locator(selector)
                 for index in range(min(locator.count(), 80)):
                     card = locator.nth(index)
                     try:
-                        if card.is_visible():
-                            cards.append(card)
+                        if not card.is_visible():
+                            continue
                     except Exception:
                         continue
+
+                    data_test_id = (card.get_attribute("data-test-id") or "").lower()
+                    class_names = (card.get_attribute("class") or "").lower()
+                    if "search-item" not in data_test_id and "search-profile-card" not in class_names:
+                        continue
+
+                    name_candidates = card.locator('p[data-test-id*="person-name"], p.ui-typography.color.name, p.name, .name').count()
+                    if name_candidates == 0:
+                        continue
+
+                    identity = card.get_attribute("id") or data_test_id or str(index)
+                    if identity in seen:
+                        continue
+                    seen.add(identity)
+                    cards.append(card)
             except Exception:
                 continue
-
-        if cards:
-            return cards
-
-        fallback = self.driver.page.locator('article, section, div, li')
-        try:
-            for index in range(min(fallback.count(), 80)):
-                card = fallback.nth(index)
-                try:
-                    if not card.is_visible():
-                        continue
-                    inner_text = card.text_content() or ""
-                    if not any(token in inner_text.lower() for token in ["person-name", "ui-typography", "name"]):
-                        continue
-                    cards.append(card)
-                except Exception:
-                    continue
-        except Exception:
-            pass
 
         return cards
 
     def _extract_name_and_age_from_card(self, card_locator) -> tuple[str, int | None]:
         name_text = ""
-        try:
-            name_text = card_locator.locator('p[data-test-id*="person-name"], p.ui-typography.color.name, p.name').first.text_content() or ""
-        except Exception:
-            pass
+        for selector in [
+            'p[data-test-id*="person-name"]',
+            'p.ui-typography.color.name',
+            'p.name',
+            '.name',
+        ]:
+            try:
+                candidate = card_locator.locator(selector).first
+                if candidate.count() > 0:
+                    text = (candidate.text_content() or "").strip()
+                    if text:
+                        name_text = text
+                        break
+            except Exception:
+                continue
 
         age_text = ""
-        try:
-            age_text = card_locator.locator('p[data-test-id*="person-display-age"], [data-test-id*="person-display-age"], p[data-test-id*="person age"]').first.text_content() or ""
-        except Exception:
-            pass
+        for selector in [
+            'p[data-test-id*="person-display-age"]',
+            '[data-test-id*="person-display-age"]',
+            'p[data-test-id*="person age"]',
+            '.info-wrapper p',
+            '.info p',
+        ]:
+            try:
+                candidate = card_locator.locator(selector).first
+                if candidate.count() > 0:
+                    text = (candidate.text_content() or "").strip()
+                    if text:
+                        age_text = text
+                        break
+            except Exception:
+                continue
 
         cleaned_name = self._normalise_text(name_text)
-        age_match = re.search(r"(\d{1,3})", age_text or "")
-        age_value = int(age_match.group(1)) if age_match else None
+        age_digits = re.findall(r"\d{1,3}", age_text or "")
+        age_value = int(age_digits[-1]) if age_digits else None
         return cleaned_name, age_value
 
     def _card_matches_target_profile(self, card_locator, target_name: str, target_age: int) -> bool:
@@ -737,19 +721,21 @@ class AllfeelloveAuto:
 
     def _go_to_next_profile_page(self) -> bool:
         next_page_selectors = [
-            'button[data-test-id*="next"]',
-            'button[aria-label*="next" i]',
+            '[data-test-id="cmp:ui-button click:change-page-options-current-page next"]',
+            'button[data-test-id="cmp:ui-button click:change-page-options-current-page next"]',
+            'button[data-test-id*="change-page-options-current-page next"]',
             'button:has-text("Next")',
             'button >> text=Next',
             'a:has-text("Next")',
-            '[data-test-id*="change-page"]',
         ]
 
         for attempt in range(1, 6):
             for selector in next_page_selectors:
                 try:
                     candidate = self.driver.page.locator(selector).first
-                    if candidate.count() > 0 and candidate.is_visible():
+                    if candidate.count() == 0:
+                        continue
+                    if candidate.is_visible():
                         self.driver.page.wait_for_timeout(800)
                         candidate.click(force=True)
                         self.driver.page.wait_for_load_state("networkidle", timeout=min(self.driver.timeout, 15000))
