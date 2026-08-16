@@ -209,8 +209,17 @@ def main():
             print(f"{TerminalUI.ANSI['fg_red']}[-] Error al inicializar el driver.{TerminalUI.ANSI['reset']}")
             return
 
+        auto_algo = os.getenv("ALGO")
+        first_run = True
+
         while True:
-            selected = show_algorithm_menu()
+            if first_run and auto_algo:
+                matching = [item for item in ALGORITHMS if item["id"] == auto_algo]
+                selected = matching[0] if matching else show_algorithm_menu()
+                first_run = False
+            else:
+                selected = show_algorithm_menu()
+
             option_id = selected["id"]
 
             if option_id == "exit":
