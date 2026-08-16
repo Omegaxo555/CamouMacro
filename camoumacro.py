@@ -501,10 +501,13 @@ class AutomationConfig:
                 inner_cmd = f'cd "{ROOT_DIR}" && "{PYTHON}" "{MAIN_PY}"; exec bash'
                 terminal_tried = False
                 for term_cmd in [
+                    ["x-terminal-emulator", "-e", f"bash -c '{inner_cmd}'"],
+                    ["qterminal", "-e", f"bash -c '{inner_cmd}'"],
                     ["gnome-terminal", "--", "bash", "-c", inner_cmd],
                     ["xterm", "-title", title, "-e", f"bash -c '{inner_cmd}'"],
                     ["konsole", "--noclose", "-e", "bash", "-c", inner_cmd],
                     ["xfce4-terminal", "--command", f"bash -c '{inner_cmd}'"],
+                    ["mate-terminal", "-e", f"bash -c '{inner_cmd}'"],
                     ["lxterminal", "-e", f"bash -c '{inner_cmd}'"],
                 ]:
                     if _which(term_cmd[0]):
@@ -515,7 +518,7 @@ class AutomationConfig:
                 if not terminal_tried:
                     messagebox.showerror("Error",
                         "No se encontró un emulador de terminal compatible.\n"
-                        "Instala gnome-terminal, xterm, konsole o xfce4-terminal.")
+                        "Se intentó usar: x-terminal-emulator, qterminal, gnome-terminal, xterm, konsole, xfce4-terminal, mate-terminal, lxterminal.")
                     return
 
             inst = AlgoInstance(proc, params={
