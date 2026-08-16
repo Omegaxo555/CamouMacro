@@ -231,26 +231,36 @@ class BrowserAutomation:
     ) -> bool:
         """Selecciona una opción dentro de un multiselect Vue/Allfeellove de forma rápida, directa y limpia."""
         timeout_value = timeout or self.default_timeout
-        op_timeout = min(timeout_value, 2000)
+        op_timeout = min(timeout_value, 3000)
         resolved_container = self.resolve_selector(container_selector)
         container = self.page.locator(resolved_container).first
 
         try:
-            # 1. Espera rápida a visibilidad del multiselect
+            # 1. Espera rápida a que el multiselect esté visible
             container.wait_for(state="visible", timeout=op_timeout)
 
-            # 2. Comprobación instantánea sin esperas de valor ya seleccionado
+            # 2. Comprobación instantánea sin esperas de si ya tiene el valor seleccionado
             single_locator = container.locator("span.multiselect__single")
             if single_locator.count() > 0:
                 try:
-                    current_val = (single_locator.first.inner_text(timeout=150) or "").strip()
-                    if current_val.lower() == option_text.strip().lower():
-                        self._debug(f"Multiselect '{resolved_container}' ya tiene seleccionado '{option_text}'")
+                    current_val = (single_locator.first.text_content(timeout=150) or "").strip()
+                    if current_val and (option_text.strip().lower() == current_val.lower() or option_text.strip().lower() in current_val.lower()):
+                        self._debug(f"Multiselect '{resolved_container}' ya tiene seleccionado '{current_val}'")
                         return True
-                except PlaywrightError:
+                except Exception:
                     pass
 
-            # 3. Localizar input del multiselect (por search_selector o input interno)
+            # 3. Abrir el multiselect haciendo click en el contenedor / tags
+            # En Vue-multiselect el input tiene width 0 cuando está cerrado, por lo que clickeamos .multiselect__tags o .ui-select_icon
+            click_target = container.locator(".multiselect__tags, .ui-select_icon").first
+            if click_target.count() > 0:
+                click_target.click(timeout=op_timeout)
+            else:
+                container.click(timeout=op_timeout)
+
+            self.page.wait_for_timeout(50)
+
+            # 4. Localizar input del multiselect para escribir
             input_locator = None
             if search_selector is not None:
                 search_loc = self.locator(search_selector, timeout=op_timeout).first
@@ -262,38 +272,35 @@ class BrowserAutomation:
                 if fallback_input.count() > 0:
                     input_locator = fallback_input
 
-            # 4. Si hay input, escribir y confirmar la opción
-            if input_locator is not None:
-                input_locator.click(timeout=op_timeout)
+            if input_locator is not None and input_locator.count() > 0:
+                # Escribir la opción en el input
                 input_locator.fill(option_text, timeout=op_timeout)
-                # Pausa mínima para reactividad de Vue
-                self.page.wait_for_timeout(50)
+                self.page.wait_for_timeout(60)
 
-                # Intentar click en la opción coincidente dentro del contenedor
+                # Intentar click en la opción coincidente dentro del dropdown
                 matching_option = container.locator(
                     ".multiselect__option, .multiselect__element, [role='option']"
                 ).filter(has_text=option_text).first
 
-                if matching_option.count() > 0 and matching_option.is_visible():
-                    matching_option.click(timeout=op_timeout)
-                    self._debug(f"Opción '{option_text}' seleccionada por click en '{resolved_container}'")
-                    return True
+                if matching_option.count() > 0:
+                    try:
+                        matching_option.click(timeout=op_timeout)
+                        self._debug(f"Opción '{option_text}' seleccionada por click en '{resolved_container}'")
+                        return True
+                    except PlaywrightError:
+                        pass
 
-                # En Vue-multiselect presionar Enter selecciona la opción filtrada/resaltada
+                # Si no se pudo clickear la opción directamente, presionar Enter (selecciona el primer filtrado en vue-multiselect)
                 input_locator.press("Enter", timeout=op_timeout)
                 self._debug(f"Opción '{option_text}' seleccionada con Enter en '{resolved_container}'")
                 return True
 
-            # 5. Si no hay input directo, abrir dropdown y hacer click en la opción
-            container.click(timeout=op_timeout)
-            self.page.wait_for_timeout(50)
-
+            # 5. Si no hay input para escribir, buscar opción en el dropdown abierto y clickear
             matching_option = container.locator(
                 ".multiselect__option, .multiselect__element, [role='option']"
             ).filter(has_text=option_text).first
 
             if matching_option.count() > 0:
-                matching_option.wait_for(state="visible", timeout=op_timeout)
                 matching_option.click(timeout=op_timeout)
                 self._debug(f"Opción '{option_text}' seleccionada tras desplegar '{resolved_container}'")
                 return True

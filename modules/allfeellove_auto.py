@@ -199,7 +199,7 @@ class AllfeelloveAuto:
 
         result = self.automation.safe_click(filtersButton)
         print(f'[allfeellove_auto] Abriendo el apartado de filtros: {result}')
-        self.driver.page.wait_for_timeout(40)
+        self.automation.wait_for_visible(HtmlElement.css('.search-filters-form, [data-test-id="cmp:search-filter content"]'), timeout=4000)
 
         result = self.automation.select_multiselect_option(
             countrySelect,
