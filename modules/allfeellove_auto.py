@@ -195,11 +195,11 @@ class AllfeelloveAuto:
 
         result = self.automation.safe_click(allpeopleButton)
         print(f'[allfeellove_auto] Filtrando todos: {result}')
-        self.driver.page.wait_for_timeout(250)
+        self.driver.page.wait_for_timeout(80)
 
         result = self.automation.safe_click(filtersButton)
         print(f'[allfeellove_auto] Abriendo el apartado de filtros: {result}')
-        self.driver.page.wait_for_timeout(80)
+        self.driver.page.wait_for_timeout(40)
 
         result = self.automation.select_multiselect_option(
             countrySelect,
@@ -256,30 +256,37 @@ class AllfeelloveAuto:
         ]
 
         names: list[str] = []
+        seen: set[str] = set()
+
         for selector in selectors:
             try:
-                visible_names = self.driver.page.locator(selector).all_text_contents()
-                for name in visible_names:
-                    cleaned = (name or "").strip()
-                    if not cleaned:
+                locator = self.driver.page.locator(selector)
+                for element in locator.all():
+                    try:
+                        if not element.is_visible():
+                            continue
+                    except Exception:
                         continue
-                    lowered = cleaned.lower()
+
+                    text = (element.text_content() or "").strip()
+                    if not text:
+                        continue
+
+                    lowered = text.lower()
                     if any(token in lowered for token in ["ad", "sponsored", "anuncio", "promo"]):
                         continue
-                    names.append(cleaned)
+
+                    key = self._normalise_text(text)
+                    if not key or key in seen:
+                        continue
+                    seen.add(key)
+                    names.append(text)
             except Exception:
                 continue
 
-        seen = set()
-        unique_names = []
-        for name in names:
-            if name.lower() not in seen:
-                seen.add(name.lower())
-                unique_names.append(name)
+        return names[:12]
 
-        return unique_names[:12]
-
-    def _wait_for_profile_names(self, timeout_seconds: float = 8.0) -> list[str]:
+    def _wait_for_profile_names(self, timeout_seconds: float = 2.5) -> list[str]:
         deadline = time.monotonic() + timeout_seconds
         last_names: list[str] = []
         while time.monotonic() < deadline:
@@ -287,7 +294,7 @@ class AllfeelloveAuto:
             if names:
                 last_names = names
                 break
-            self.driver.page.wait_for_timeout(400)
+            self.driver.page.wait_for_timeout(80)
         return last_names
 
     def _normalise_text(self, value: str) -> str:
@@ -297,16 +304,58 @@ class AllfeelloveAuto:
         value = re.sub(r"[^a-z0-9]+", " ", value)
         return " ".join(value.split())
 
+    def _collect_profile_cards(self):
+        """Devuelve las tarjetas visibles de resultados en una sola pasada por el DOM."""
+        card_selectors = [
+            '[data-test-id*="search-item"]',
+            '[data-test-id*="file:search-item"]',
+        ]
+
+        cards = []
+        for selector in card_selectors:
+            try:
+                locator = self.driver.page.locator(selector)
+                for index in range(min(locator.count(), 80)):
+                    card = locator.nth(index)
+                    try:
+                        if card.is_visible():
+                            cards.append(card)
+                    except Exception:
+                        continue
+            except Exception:
+                continue
+
+        if cards:
+            return cards
+
+        fallback = self.driver.page.locator('article, section, div').filter(
+            has='p[data-test-id*="person-name"], p.ui-typography.color.name, p.name'
+        )
+        try:
+            for index in range(min(fallback.count(), 80)):
+                card = fallback.nth(index)
+                try:
+                    if card.is_visible():
+                        cards.append(card)
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
+        return cards
+
     def _extract_name_and_age_from_card(self, card_locator) -> tuple[str, int | None]:
+        name_text = ""
         try:
             name_text = card_locator.locator('p[data-test-id*="person-name"], p.ui-typography.color.name, p.name').first.text_content() or ""
         except Exception:
-            name_text = ""
+            pass
 
+        age_text = ""
         try:
             age_text = card_locator.locator('p[data-test-id*="person-display-age"], [data-test-id*="person-display-age"], p[data-test-id*="person age"]').first.text_content() or ""
         except Exception:
-            age_text = ""
+            pass
 
         cleaned_name = self._normalise_text(name_text)
         age_match = re.search(r"(\d{1,3})", age_text or "")
@@ -325,8 +374,7 @@ class AllfeelloveAuto:
         if not name_text:
             return False
 
-        normalised_name = self._normalise_text(target_name)
-        if name_text != normalised_name:
+        if name_text != self._normalise_text(target_name):
             return False
 
         if age_value is None:
@@ -335,55 +383,20 @@ class AllfeelloveAuto:
         return age_value == target_age
 
     def _find_profile_card_by_name(self, target_name: str, target_age: int = None):
-        selectors = [
-            'p[data-test-id*="person-name"]',
-            'p.ui-typography.color.name',
-            'p.name',
-            '[data-test-id*="person person-name"]',
-        ]
-
-        for selector in selectors:
-            candidates = self.driver.page.locator(selector)
+        target_key = self._normalise_text(target_name)
+        for card in self._collect_profile_cards():
             try:
-                count = candidates.count()
+                name_text, age_value = self._extract_name_and_age_from_card(card)
             except Exception:
                 continue
 
-            for index in range(count):
-                try:
-                    candidate = candidates.nth(index)
-                    if not candidate.is_visible():
-                        continue
-                except Exception:
-                    continue
+            if not name_text or name_text != target_key:
+                continue
 
-                card = None
-                try:
-                    search_items = self.driver.page.locator('[data-test-id*="search-item"],[data-test-id*="file:search-item"]')
-                    matches = search_items.filter(has=candidate)
-                    if matches.count() > 0:
-                        card = matches.first
-                    else:
-                        card = candidate.locator("xpath=ancestor::*[contains(@data-test-id,'search-item')][1]")
-                        if card.count() == 0:
-                            card = candidate.locator("xpath=ancestor::*[contains(@class,'info-wrapper')][1]")
-                        if card.count() == 0:
-                            card = candidate.locator("xpath=ancestor::*[contains(@class,'info')][1]")
-                        if card.count() == 0:
-                            card = candidate.locator("xpath=ancestor::*[self::div or self::article or self::section][1]")
-                except Exception:
-                    card = None
-
-                if card is None or card.count() == 0:
-                    continue
-
-                if target_age is not None:
-                    if self._card_matches_target_profile(card, target_name, target_age):
-                        return card
-                else:
-                    name_text, _ = self._extract_name_and_age_from_card(card)
-                    if self._normalise_text(target_name) == name_text:
-                        return card
+            if target_age is not None and age_value is not None and age_value == target_age:
+                return card
+            if target_age is None:
+                return card
         return None
 
     def _has_profile_name(self, target_name: str, target_age: int = None) -> bool:
@@ -401,6 +414,35 @@ class AllfeelloveAuto:
             card = self._find_profile_card_by_name(name_option, age_option)
             if card is not None:
                 return name_option, age_option, card
+        return None, None, None
+
+    def _scan_profile_batch_fast(self, target_profiles: dict[str, int]) -> tuple[str | None, int | None, object | None]:
+        if not target_profiles:
+            return None, None, None
+
+        target_map: dict[str, tuple[str, int]] = {}
+        for name, age in target_profiles.items():
+            target_map[self._normalise_text(name)] = (name, age)
+
+        for card in self._collect_profile_cards():
+            try:
+                name_text, age_value = self._extract_name_and_age_from_card(card)
+            except Exception:
+                continue
+
+            if not name_text:
+                continue
+
+            target = target_map.get(name_text)
+            if target is None:
+                continue
+
+            desired_name, desired_age = target
+            if age_value is None:
+                continue
+            if age_value == desired_age:
+                return desired_name, desired_age, card
+
         return None, None, None
 
     def _ensure_chat_mode(self) -> bool:
@@ -697,10 +739,13 @@ class AllfeelloveAuto:
 
     def _scan_profiles_until_found(self, target_profiles: dict[str, int], max_pages: int = 25) -> bool:
         for page_index in range(1, max_pages + 1):
-            visible_names = self._wait_for_profile_names(timeout_seconds=8.0)
+            visible_names = self._wait_for_profile_names(timeout_seconds=2.5)
             print(f"[allfeellove_auto] Página {page_index}. Nombres visibles: {visible_names[:12]}")
 
-            matched_name, matched_age, matched_card = self._find_any_matching_profile_card(target_profiles)
+            matched_name, matched_age, matched_card = self._scan_profile_batch_fast(target_profiles)
+            if matched_card is None:
+                matched_name, matched_age, matched_card = self._find_any_matching_profile_card(target_profiles)
+
             if matched_card is not None:
                 self.last_found_profile_name = matched_name
                 self.last_found_profile_age = matched_age

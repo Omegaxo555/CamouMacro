@@ -1,2 +1,2 @@
-camoufox
+camoufox[geoip]
 playwright

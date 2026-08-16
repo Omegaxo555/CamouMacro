@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+.git/
+.gitignore
+.vscode/
+.DS_Store
+*.log
+templates/perfil_base/
+templates/*.tar.gz

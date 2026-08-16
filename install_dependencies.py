@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 PACKAGES = [
-    "camoufox",
+    "camoufox[geoip]",
     "playwright",
 ]
 

@@ -193,10 +193,16 @@ def run_algorithm_with_debug(driver: CamoufoxHandler, selected: dict) -> None:
 
 
 def main():
-    current_port = 9050
+    current_port = int(os.getenv("TOR_PORT", "9050"))
+    headless_mode = os.getenv("HEADLESS", "false").lower() == "true"
     start_tor_background(port=current_port)
 
-    driver = build_driver_for_port(current_port)
+    driver = CamoufoxHandler(
+        tor_proxy=f"socks5://127.0.0.1:{current_port}",
+        profile_template="templates/perfil_base.tar.gz",
+        headless=headless_mode,
+        window_size=(600, 800),
+    )
 
     try:
         if not driver.initialize():
