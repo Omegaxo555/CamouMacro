@@ -7,7 +7,7 @@ import tempfile
 from pathlib import Path
 from typing import Optional
 from camoufox.sync_api import Camoufox
-from playwright.async_api import Error as PlaywrightError, Page, BrowserContext
+from playwright.sync_api import Error as PlaywrightError, Page, BrowserContext
 
 logging.basicConfig(
     level=logging.INFO,

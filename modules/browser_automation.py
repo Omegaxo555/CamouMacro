@@ -7,7 +7,7 @@ import time
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
-from playwright.async_api import Error as PlaywrightError, Locator, Page
+from playwright.sync_api import Error as PlaywrightError, Locator, Page
 
 
 @dataclass(frozen=True)

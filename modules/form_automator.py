@@ -1,7 +1,7 @@
 import random
 import logging
 from typing import Optional, Dict, Any
-from playwright.async_api import Page, ElementHandle, Error as PlaywrightError
+from playwright.sync_api import Page, ElementHandle, Error as PlaywrightError
 
 class FormAutomator:
 
