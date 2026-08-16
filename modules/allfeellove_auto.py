@@ -246,35 +246,6 @@ class AllfeelloveAuto:
 
 
 
-    def _get_visible_profile_names(self) -> list[str]:
-        names: list[str] = []
-        seen: set[str] = set()
-
-        for card in self._collect_profile_cards():
-            try:
-                name_text, _ = self._extract_name_and_age_from_card(card)
-            except Exception:
-                continue
-
-            if not name_text or name_text in seen:
-                continue
-
-            seen.add(name_text)
-            names.append(name_text)
-
-        return names[:12]
-
-    def _wait_for_profile_names(self, timeout_seconds: float = 2.5) -> list[str]:
-        deadline = time.monotonic() + timeout_seconds
-        last_names: list[str] = []
-        while time.monotonic() < deadline:
-            names = self._get_visible_profile_names()
-            if names:
-                last_names = names
-                break
-            self.driver.page.wait_for_timeout(80)
-        return last_names
-
     def _normalise_text(self, value: str) -> str:
         if not value:
             return ""
@@ -282,156 +253,60 @@ class AllfeelloveAuto:
         value = re.sub(r"[^a-z0-9]+", " ", value)
         return " ".join(value.split())
 
-    def _collect_profile_cards(self):
-        """Busca solo tarjetas reales de resultados, no menús ni encabezados."""
-        selectors = [
-            '[data-test-id*="file:search-item"]',
-            'div.search-profile-card',
-            '[data-test-id*="search-item"]',
-        ]
+    def _get_cards_data_fast(self) -> list[dict]:
+        """Extrae la información de todas las tarjetas visibles en un solo viaje JS instantáneo (< 10ms)."""
+        js_script = """
+        () => {
+            const cards = document.querySelectorAll('div.search-profile-card, [data-test-id*="file:search-item"], [data-test-id*="search-item"]');
+            const results = [];
+            const seen = new Set();
 
-        cards = []
-        seen: set[str] = set()
+            for (let i = 0; i < cards.length; i++) {
+                const card = cards[i];
+                if (!card || card.offsetParent === null) continue;
 
-        for selector in selectors:
-            try:
-                locator = self.driver.page.locator(selector)
-                for index in range(min(locator.count(), 80)):
-                    card = locator.nth(index)
-                    try:
-                        if not card.is_visible():
-                            continue
-                    except Exception:
-                        continue
+                const nameEl = card.querySelector('p[data-test-id*="person-name"], p.ui-typography.color.name, p.name, .name');
+                if (!nameEl) continue;
 
-                    data_test_id = (card.get_attribute("data-test-id") or "").lower()
-                    class_names = (card.get_attribute("class") or "").lower()
-                    if "search-item" not in data_test_id and "search-profile-card" not in class_names:
-                        continue
+                const rawName = (nameEl.textContent || '').trim();
+                if (!rawName) continue;
 
-                    name_candidates = card.locator('p[data-test-id*="person-name"], p.ui-typography.color.name, p.name, .name').count()
-                    if name_candidates == 0:
-                        continue
+                const ageEl = card.querySelector('p[data-test-id*="person-display-age"], [data-test-id*="person-display-age"], p[data-test-id*="person age"], .info p');
+                const rawAge = ageEl ? (ageEl.textContent || '').trim() : '';
+                const ageMatch = rawAge.match(/\\d{1,3}/g);
+                const age = ageMatch ? parseInt(ageMatch[ageMatch.length - 1], 10) : null;
 
-                    identity = card.get_attribute("id") or data_test_id or str(index)
-                    if identity in seen:
-                        continue
-                    seen.add(identity)
-                    cards.append(card)
-            except Exception:
-                continue
+                const cardId = card.id || card.getAttribute('data-test-id') || `card-${i}`;
+                if (seen.has(cardId)) continue;
+                seen.add(cardId);
 
-        return cards
-
-    def _extract_name_and_age_from_card(self, card_locator) -> tuple[str, int | None]:
-        name_text = ""
-        for selector in [
-            'p[data-test-id*="person-name"]',
-            'p.ui-typography.color.name',
-            'p.name',
-            '.name',
-        ]:
-            try:
-                candidate = card_locator.locator(selector).first
-                if candidate.count() > 0:
-                    text = (candidate.text_content() or "").strip()
-                    if text:
-                        name_text = text
-                        break
-            except Exception:
-                continue
-
-        age_text = ""
-        for selector in [
-            'p[data-test-id*="person-display-age"]',
-            '[data-test-id*="person-display-age"]',
-            'p[data-test-id*="person age"]',
-            '.info-wrapper p',
-            '.info p',
-        ]:
-            try:
-                candidate = card_locator.locator(selector).first
-                if candidate.count() > 0:
-                    text = (candidate.text_content() or "").strip()
-                    if text:
-                        age_text = text
-                        break
-            except Exception:
-                continue
-
-        cleaned_name = self._normalise_text(name_text)
-        age_digits = re.findall(r"\d{1,3}", age_text or "")
-        age_value = int(age_digits[-1]) if age_digits else None
-        return cleaned_name, age_value
-
-    def _card_matches_target_profile(self, card_locator, target_name: str, target_age: int) -> bool:
-        if card_locator is None:
-            return False
-
+                results.push({
+                    index: i,
+                    id: card.id || '',
+                    testId: card.getAttribute('data-test-id') || '',
+                    name: rawName,
+                    age: age
+                });
+            }
+            return results;
+        }
+        """
         try:
-            name_text, age_value = self._extract_name_and_age_from_card(card_locator)
+            return self.driver.page.evaluate(js_script) or []
         except Exception:
-            return False
+            return []
 
-        if not name_text:
-            return False
-
-        if name_text != self._normalise_text(target_name):
-            return False
-
-        if age_value is None:
-            return False
-
-        return age_value == target_age
-
-    def _find_profile_card_by_name(self, target_name: str, target_age: int = None):
-        target_key = self._normalise_text(target_name)
-        for card in self._collect_profile_cards():
-            try:
-                name_text, age_value = self._extract_name_and_age_from_card(card)
-            except Exception:
-                continue
-
-            if not name_text or name_text != target_key:
-                continue
-
-            if target_age is not None and age_value is not None and age_value == target_age:
-                return card
-            if target_age is None:
-                return card
-        return None
-
-    def _has_profile_name(self, target_name: str, target_age: int = None) -> bool:
-        names = self._get_visible_profile_names()
-        if target_age is None:
-            return any(self._normalise_text(target_name) in self._normalise_text(name).split() for name in names)
-
-        for name in names:
-            if self._card_matches_target_profile(name, target_name, target_age):
-                return True
-        return False
-
-    def _find_any_matching_profile_card(self, target_profiles: dict[str, int]):
-        for name_option, age_option in target_profiles.items():
-            card = self._find_profile_card_by_name(name_option, age_option)
-            if card is not None:
-                return name_option, age_option, card
-        return None, None, None
-
-    def _scan_profile_batch_fast(self, target_profiles: dict[str, int]) -> tuple[str | None, int | None, object | None]:
-        if not target_profiles:
+    def _scan_profile_batch_fast(self, target_profiles: dict[str, int], cards_data: list[dict]):
+        """Compara las tarjetas extraídas contra el diccionario de targets en memoria de forma instantánea."""
+        if not target_profiles or not cards_data:
             return None, None, None
 
         target_map: dict[str, tuple[str, int]] = {}
         for name, age in target_profiles.items():
             target_map[self._normalise_text(name)] = (name, age)
 
-        for card in self._collect_profile_cards():
-            try:
-                name_text, age_value = self._extract_name_and_age_from_card(card)
-            except Exception:
-                continue
-
+        for card_info in cards_data:
+            name_text = self._normalise_text(card_info.get("name", ""))
             if not name_text:
                 continue
 
@@ -440,99 +315,85 @@ class AllfeelloveAuto:
                 continue
 
             desired_name, desired_age = target
-            if age_value is None:
+            age_value = card_info.get("age")
+            if age_value is not None and age_value != desired_age:
                 continue
-            if age_value == desired_age:
-                return desired_name, desired_age, card
+
+            card_locator = None
+            if card_info.get("id"):
+                card_locator = self.driver.page.locator(f"#{card_info['id']}").first
+            elif card_info.get("testId"):
+                card_locator = self.driver.page.locator(f'[data-test-id="{card_info["testId"]}"]').first
+            else:
+                card_locator = self.driver.page.locator('div.search-profile-card, [data-test-id*="search-item"]').nth(card_info["index"])
+
+            return desired_name, desired_age, card_locator
 
         return None, None, None
 
     def _ensure_chat_mode(self) -> bool:
-        """Espera a que el perfil se renderice y luego alterna Mail -> Chat si corresponde."""
-        try:
-            selectors = [
-                'textarea[data-test-id="cmp:ui-textarea message type-your-message"]',
-                'textarea[placeholder*="Type your message"]',
-                'textarea#form-textarea',
-            ]
+        """Verifica si la vista está en Mail o Chat y cambia a Chat si es necesario."""
+        textarea_selector = 'textarea[data-test-id="cmp:ui-textarea message type-your-message"], textarea#form-textarea, textarea[placeholder*="message" i]'
+        switch_selectors = [
+            'button[data-test-id="cmp:ui-button click:is-chat-visible-true change-to-chat"]',
+            'button[data-test-id*="change-to-chat"]',
+            'button:has-text("Change to chat")',
+            '.x8gxgoBU button',
+            '#mail-title ~ button',
+        ]
 
-            for selector in selectors:
-                textarea = self.driver.page.locator(selector).first
+        for _ in range(3):
+            # 1. Comprobar si ya está en modo Chat (textarea visible)
+            try:
+                textarea = self.driver.page.locator(textarea_selector).first
+                if textarea.count() > 0 and textarea.is_visible():
+                    print("[allfeellove_auto] Modo Chat ya está activo.")
+                    return True
+            except Exception:
+                pass
+
+            # 2. Buscar y presionar el botón 'Change to chat'
+            for selector in switch_selectors:
                 try:
-                    if textarea.count() > 0 and textarea.is_visible():
-                        print("[allfeellove_auto] Ya está en modo Chat.")
-                        return True
+                    button = self.driver.page.locator(selector).first
+                    if button.count() > 0 and button.is_visible():
+                        print("[allfeellove_auto] Detectado modo Mail. Cambiando a Chat...")
+                        button.click(force=True)
+                        self.driver.page.wait_for_timeout(600)
+                        break
                 except Exception:
                     pass
 
-            switch_selectors = [
-                'button[data-test-id="cmp:ui-button click:is-chat-visible-true change-to-chat"]',
-                'button[data-test-id*="change-to-chat"]',
-                'button:has-text("Change to chat")',
-                'button:has-text("SwitchMode")',
-                'button:has-text("Chat")',
-                'button[data-test-id*="chat"]',
-            ]
+            # 3. Esperar que aparezca el textarea de chat
+            try:
+                textarea = self.driver.page.locator(textarea_selector).first
+                textarea.wait_for(state="visible", timeout=3000)
+                if textarea.is_visible():
+                    print("[allfeellove_auto] Modo Chat activado exitosamente.")
+                    return True
+            except Exception:
+                pass
 
-            for attempt in range(10):
-                for selector in selectors:
-                    try:
-                        textarea = self.driver.page.locator(selector).first
-                        if textarea.count() > 0 and textarea.is_visible():
-                            print("[allfeellove_auto] El textarea de chat está visible.")
-                            return True
-                    except Exception:
-                        pass
+            self.driver.page.wait_for_timeout(300)
 
-                clicked_any = False
-                for selector in switch_selectors:
-                    try:
-                        button = self.driver.page.locator(selector).first
-                        if button.count() > 0 and button.is_visible():
-                            print("[allfeellove_auto] Detectado modo Mail. Cambiando a Chat...")
-                            button.click(force=True)
-                            clicked_any = True
-                            break
-                    except Exception:
-                        pass
-                if clicked_any:
-                    self.driver.page.wait_for_timeout(700)
-                    continue
+        return False
 
-                mail_label = self.driver.page.get_by_text("Mail", exact=False)
-                if mail_label.count() > 0 and mail_label.first.is_visible():
-                    print("[allfeellove_auto] Vista en Mail detectada por el label del sitio.")
-                    for selector in switch_selectors:
-                        try:
-                            button = self.driver.page.locator(selector).first
-                            if button.count() > 0:
-                                button.click(force=True)
-                                self.driver.page.wait_for_timeout(700)
-                                break
-                        except Exception:
-                            pass
-
-                self.driver.page.wait_for_timeout(250)
-
-            return False
-        except Exception as exc:
-            print(f"[allfeellove_auto] No se pudo verificar el modo de chat: {exc}")
-            return False
-
-    def _send_sticker_batch(self, sticker_count: int = 3) -> None:
+    def _send_sticker_batch(self, sticker_count: int = 5) -> None:
+        """Abre la interfaz de stickers y envía la cantidad indicada (por defecto 5)."""
         toggle_selectors = [
             'button[data-test-id="click:toggle-sticker-box"]',
             'button[data-test-id*="toggle-sticker"]',
+            'button[data-test-id*="sticker"]',
             'button:has-text("Stickers")',
         ]
-        sticker_selector = 'div[data-test-id*="click:on-send-sticker-sticker"]'
+        sticker_selector = 'div[data-test-id*="click:on-send-sticker-sticker"], div[data-test-id*="on-send-sticker"], .sticker-item, img[data-test-id*="sticker"]'
 
         opened = False
         for selector in toggle_selectors:
             try:
                 toggle_button = self.driver.page.locator(selector).first
                 if toggle_button.count() > 0:
-                    toggle_button.wait_for(state="visible", timeout=8000)
+                    toggle_button.wait_for(state="visible", timeout=5000)
                     toggle_button.scroll_into_view_if_needed()
                     toggle_button.click(force=True)
                     opened = True
@@ -542,7 +403,7 @@ class AllfeelloveAuto:
                 pass
 
         if not opened:
-            print("[allfeellove_auto] No se encontró el botón de stickers.")
+            print("[allfeellove_auto] No se encontró el botón para abrir stickers.")
             return
 
         try:
@@ -553,117 +414,110 @@ class AllfeelloveAuto:
                 print("[allfeellove_auto] No hay stickers visibles en la caja.")
                 return
 
-            target_count = min(max(1, sticker_count), total_items)
+            target_count = sticker_count
             for index in range(target_count):
-                item = sticker_items.nth(index)
+                item_idx = index % total_items
+                item = sticker_items.nth(item_idx)
                 try:
-                    item.wait_for(state="visible", timeout=5000)
+                    item.wait_for(state="visible", timeout=3000)
                     item.scroll_into_view_if_needed()
                     item.click(force=True)
-                    self.driver.page.wait_for_timeout(300)
+                    print(f"[allfeellove_auto] Sticker {index + 1}/{target_count} enviado.")
+                    self.driver.page.wait_for_timeout(400)
                 except Exception:
                     continue
-            print(f"[allfeellove_auto] Se enviaron {target_count} stickers.")
+            print(f"[allfeellove_auto] Proceso de stickers completado ({target_count} enviados).")
         except Exception as exc:
             print(f"[allfeellove_auto] Error al enviar stickers: {exc}")
 
     def _interact_with_found_profile(self, card_locator) -> None:
-        view_profile_selector = 'button[data-test-id="cmp:ui-button click:go-to-profile-via-button"]'
+        """Interacción completa con el perfil: View Profile -> Like & Wink -> Chat mode -> Mensajes -> Stickers."""
+        view_profile_selectors = [
+            'button[data-test-id="cmp:ui-button click:go-to-profile-via-button"]',
+            'button[data-test-id*="go-to-profile"]',
+            'a[data-test-id*="track-go-to-profile"]',
+            'a.photo-card-root',
+            'button:has-text("View Profile")',
+        ]
         like_selectors = [
             'button[data-test-id="cmp:ui-button click:on-like"]',
             'button[data-test-id*="on-like"]',
             'button:has-text("Like")',
-            'button >> text=Like',
         ]
         wink_selectors = [
             'button[data-test-id="cmp:ui-button click:on-wink"]',
             'button[data-test-id*="on-wink"]',
             'button:has-text("Wink")',
-            'button >> text=Wink',
         ]
-        textarea_selector = 'textarea[data-test-id="cmp:ui-textarea message type-your-message"]'
-        send_selector = 'button[data-test-id="cmp:ui-button click:send-message send"]'
+        textarea_selector = 'textarea[data-test-id="cmp:ui-textarea message type-your-message"], textarea#form-textarea, textarea'
+        send_selectors = [
+            'button[data-test-id="cmp:ui-button click:send-message send"]',
+            'button[data-test-id*="send-message"]',
+            'button:has-text("Send")',
+        ]
 
+        # 1. Click en View Profile
         try:
-            view_button = card_locator.locator(view_profile_selector)
-            if view_button.count() == 0:
-                view_button = self.driver.page.locator(view_profile_selector).first
+            view_button = None
+            for sel in view_profile_selectors:
+                cand = card_locator.locator(sel).first
+                if cand.count() > 0:
+                    view_button = cand
+                    break
+
+            if view_button is None:
+                view_button = self.driver.page.locator(view_profile_selectors[0]).first
+
             view_button.wait_for(state="visible", timeout=8000)
-            view_button.click()
-            self.driver.page.wait_for_load_state("domcontentloaded", timeout=10000)
-            self.driver.page.wait_for_timeout(400)
-            print(f"[allfeellove_auto] Se abrió el perfil de '{self.last_found_profile_name}'.")
+            view_button.click(force=True)
+            print(f"[allfeellove_auto] Clic en 'View Profile' para '{self.last_found_profile_name}'.")
         except Exception as exc:
-            print(f"[allfeellove_auto] No se pudo abrir el perfil: {exc}")
+            print(f"[allfeellove_auto] No se pudo hacer clic en View Profile: {exc}")
             return
 
-        self.driver.page.wait_for_timeout(1000)
-        for _ in range(10):
-            triggered_like = False
-            triggered_wink = False
+        # 2. Esperar que cargue la página del perfil
+        try:
+            self.driver.page.wait_for_load_state("domcontentloaded", timeout=10000)
+            self.driver.page.wait_for_selector(
+                'button[data-test-id*="on-like"], button[data-test-id*="on-wink"], button[data-test-id*="change-to-chat"], textarea, #mail-title',
+                timeout=8000
+            )
+            self.driver.page.wait_for_timeout(600)
+            print(f"[allfeellove_auto] Perfil de '{self.last_found_profile_name}' cargado exitosamente.")
+        except Exception:
+            self.driver.page.wait_for_timeout(1000)
 
-            for selector in like_selectors:
-                try:
-                    like_button = self.driver.page.locator(selector)
-                    if like_button.count() <= 0:
-                        continue
+        # 3. Like al perfil Y Wink button
+        # Like
+        for selector in like_selectors:
+            try:
+                like_btn = self.driver.page.locator(selector).first
+                if like_btn.count() > 0 and like_btn.is_visible():
+                    like_btn.click(force=True)
+                    print(f"[allfeellove_auto] Like enviado a '{self.last_found_profile_name}'.")
+                    self.driver.page.wait_for_timeout(400)
+                    break
+            except Exception:
+                pass
 
-                    for index in range(like_button.count()):
-                        candidate = like_button.nth(index)
-                        try:
-                            candidate.wait_for(state="visible", timeout=3000)
-                            if candidate.is_visible():
-                                candidate.click(force=True)
-                                print(f"[allfeellove_auto] Like enviado a '{self.last_found_profile_name}'.")
-                                triggered_like = True
-                                break
-                        except Exception:
-                            continue
-                    if triggered_like:
-                        break
-                except Exception:
-                    pass
+        # Wink
+        for selector in wink_selectors:
+            try:
+                wink_btn = self.driver.page.locator(selector).first
+                if wink_btn.count() > 0 and wink_btn.is_visible():
+                    wink_btn.click(force=True)
+                    print(f"[allfeellove_auto] Wink enviado a '{self.last_found_profile_name}'.")
+                    self.driver.page.wait_for_timeout(400)
+                    break
+            except Exception:
+                pass
 
-            if triggered_like:
-                break
-
-            for selector in wink_selectors:
-                try:
-                    wink_button = self.driver.page.locator(selector)
-                    if wink_button.count() <= 0:
-                        continue
-
-                    for index in range(wink_button.count()):
-                        candidate = wink_button.nth(index)
-                        try:
-                            candidate.wait_for(state="visible", timeout=3000)
-                            if candidate.is_visible():
-                                candidate.click(force=True)
-                                print(f"[allfeellove_auto] Wink enviado a '{self.last_found_profile_name}'.")
-                                triggered_wink = True
-                                break
-                        except Exception:
-                            continue
-                    if triggered_wink:
-                        break
-                except Exception:
-                    pass
-
-            if triggered_like or triggered_wink:
-                break
-
-            self.driver.page.wait_for_timeout(200)
-
+        # 4. Verificar modo Mail y cambiar a Chat si es necesario
         if not self._ensure_chat_mode():
             print("[allfeellove_auto] El modo Chat no se pudo activar; se cancela el flujo de mensajes.")
             return
 
-        try:
-            self.driver.page.wait_for_selector(textarea_selector, state="visible", timeout=10000)
-        except Exception:
-            print(f"[allfeellove_auto] La vista del perfil no está lista; no se pudo abrir el textarea del mensaje.")
-            return
-
+        # 5. Escribir muy rápido los mensajes generados y enviar cada uno con cooldown de 2.5s
         tone = random.choice(["flirty", "casual", "premium"])
         messages = PeopleTalkGenerator.build_message_set(
             count=4,
@@ -673,27 +527,19 @@ class AllfeelloveAuto:
             tone=tone,
         )
 
-        send_candidates = [
-            send_selector,
-            'button[data-test-id*="send-message"]',
-            'button:has-text("Send")',
-            'button >> text=Send',
-        ]
-
         for index, message in enumerate(messages, start=1):
             sent = False
-            for _ in range(6):
+            for _ in range(3):
                 try:
                     textarea = self.driver.page.locator(textarea_selector).first
                     if textarea.count() > 0:
                         textarea.wait_for(state="visible", timeout=5000)
                         textarea.click(force=True)
-                        self.driver.page.keyboard.press("Control+A")
-                        self.driver.page.keyboard.press("Backspace")
-                        self.driver.page.keyboard.type(message)
-                        self.driver.page.wait_for_timeout(250)
+                        textarea.fill("")
+                        textarea.fill(message)
+                        self.driver.page.wait_for_timeout(50)
 
-                        for candidate in send_candidates:
+                        for candidate in send_selectors:
                             send_button = self.driver.page.locator(candidate).first
                             if send_button.count() > 0 and send_button.is_visible():
                                 send_button.click(force=True)
@@ -701,60 +547,75 @@ class AllfeelloveAuto:
                                 break
 
                         if sent:
-                            print(f"[allfeellove_auto] Mensaje {index}/4 enviado: {message}")
+                            print(f"[allfeellove_auto] Mensaje {index}/{len(messages)} enviado: '{message}'")
                             break
                 except Exception as exc:
-                    print(f"[allfeellove_auto] Reintento de mensaje {index}/4: {exc}")
-                    self.driver.page.wait_for_timeout(300)
+                    print(f"[allfeellove_auto] Reintento de mensaje {index}/{len(messages)}: {exc}")
+                    self.driver.page.wait_for_timeout(200)
 
             if not sent:
-                print(f"[allfeellove_auto] Error al enviar mensaje {index}/4: no se pudo enviar.")
+                print(f"[allfeellove_auto] No se pudo enviar el mensaje {index}/{len(messages)}.")
                 break
 
+            # Cooldown obligatorio de 2.5s entre mensajes
             if index < len(messages):
-                self.driver.page.wait_for_timeout(900)
+                print("[allfeellove_auto] Esperando cooldown de 2.5s...")
+                self.driver.page.wait_for_timeout(2500)
 
+        # 6. Abrir la interfaz de stickers y enviar 5 stickers
+        self.driver.page.wait_for_timeout(500)
         try:
-            self._send_sticker_batch(sticker_count=3)
+            self._send_sticker_batch(sticker_count=5)
         except Exception as exc:
-            print(f"[allfeellove_auto] No se pudieron enviar stickers: {exc}")
+            print(f"[allfeellove_auto] Error al enviar stickers: {exc}")
 
-    def _go_to_next_profile_page(self) -> bool:
+    def _go_to_next_profile_page(self, current_first_id: str = "") -> bool:
+        """Avanza de página rápidamente esperando de forma reactiva a que cambien las tarjetas."""
         next_page_selectors = [
-            '[data-test-id="cmp:ui-button click:change-page-options-current-page next"]',
             'button[data-test-id="cmp:ui-button click:change-page-options-current-page next"]',
             'button[data-test-id*="change-page-options-current-page next"]',
+            '[data-test-id="cmp:ui-button click:change-page-options-current-page next"]',
             'button:has-text("Next")',
-            'button >> text=Next',
-            'a:has-text("Next")',
         ]
 
-        for attempt in range(1, 6):
-            for selector in next_page_selectors:
-                try:
-                    candidate = self.driver.page.locator(selector).first
-                    if candidate.count() == 0:
-                        continue
-                    if candidate.is_visible():
-                        self.driver.page.wait_for_timeout(800)
-                        candidate.click(force=True)
-                        self.driver.page.wait_for_load_state("networkidle", timeout=min(self.driver.timeout, 15000))
-                        return True
-                except Exception:
-                    continue
+        for selector in next_page_selectors:
+            try:
+                candidate = self.driver.page.locator(selector).first
+                if candidate.count() > 0 and candidate.is_visible():
+                    candidate.click(force=True)
 
-            self.driver.page.wait_for_timeout(400)
+                    # Espera reactiva: verifica cada 60ms si las tarjetas cambiaron (máx 1.5s)
+                    deadline = time.monotonic() + 1.5
+                    while time.monotonic() < deadline:
+                        self.driver.page.wait_for_timeout(60)
+                        cards = self._get_cards_data_fast()
+                        if cards:
+                            new_id = cards[0].get("id") or cards[0].get("name")
+                            if new_id and new_id != current_first_id:
+                                return True
+                    return True
+            except Exception:
+                continue
 
         return False
 
     def _scan_profiles_until_found(self, target_profiles: dict[str, int], max_pages: int = 25) -> bool:
+        """Búsqueda ultra rápida de perfiles a través de las páginas."""
         for page_index in range(1, max_pages + 1):
-            visible_names = self._wait_for_profile_names(timeout_seconds=2.5)
+            # 1. Espera rápida a que haya tarjetas visibles (máx 1.5s, usualmente < 80ms)
+            cards_data = []
+            deadline = time.monotonic() + 1.5
+            while time.monotonic() < deadline:
+                cards_data = self._get_cards_data_fast()
+                if cards_data:
+                    break
+                self.driver.page.wait_for_timeout(50)
+
+            visible_names = [c["name"] for c in cards_data]
             print(f"[allfeellove_auto] Página {page_index}. Nombres visibles: {visible_names[:12]}")
 
-            matched_name, matched_age, matched_card = self._scan_profile_batch_fast(target_profiles)
-            if matched_card is None:
-                matched_name, matched_age, matched_card = self._find_any_matching_profile_card(target_profiles)
+            # 2. Búsqueda instantánea en memoria (0 ms)
+            matched_name, matched_age, matched_card = self._scan_profile_batch_fast(target_profiles, cards_data)
 
             if matched_card is not None:
                 self.last_found_profile_name = matched_name
@@ -767,8 +628,10 @@ class AllfeelloveAuto:
                     print(f"[allfeellove_auto] No se pudo abrir la tarjeta del perfil '{matched_name}' ({matched_age}), pero sí fue localizado.")
                     return True
 
+            # 3. Si no se encontró en esta página, avanzar de inmediato
+            first_id = cards_data[0].get("id") or (cards_data[0].get("name") if cards_data else "")
             print(f"[allfeellove_auto] Ninguno de {target_profiles} fue encontrado. Avanzando con Next...")
-            if not self._go_to_next_profile_page():
+            if not self._go_to_next_profile_page(current_first_id=first_id):
                 print(f"[allfeellove_auto] El botón Next no está disponible. Se terminó la búsqueda.")
                 return False
 
