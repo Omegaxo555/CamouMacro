@@ -209,11 +209,11 @@ class AllfeelloveAuto:
         )
         print(f'[allfeellove_auto] País seleccionado: {result}')
 
-        age_filter = 41#random.choice(["41", "34", "46"])
+        age_filter = random.choice(["41", "34", "46"])
 
         result = self.automation.select_multiselect_option(
             ageFromSelect,
-            '41',
+            '34',
             search_selector=ageFromInput,
             timeout=5000,
         )
@@ -221,7 +221,7 @@ class AllfeelloveAuto:
 
         result = self.automation.select_multiselect_option(
             ageToSelect,
-            '41',
+            '46',
             search_selector=ageToInput,
             timeout=5000,
         )
@@ -235,7 +235,7 @@ class AllfeelloveAuto:
 
         #--------------------Seccion de Buscar Perfil--------------------#
         target_profiles = {"Zol": 41, "Anna": 46, "Kathe": 34}
-        found_profile = self._scan_profiles_until_found(target_profiles, max_pages=25)
+        found_profile = self._scan_profiles_until_found(target_profiles, max_pages=100)
 
         if found_profile:
             print(f"[allfeellove_auto] Búsqueda finalizada: '{self.last_found_profile_name}' ({self.last_found_profile_age}) localizado.")

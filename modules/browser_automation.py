@@ -45,10 +45,11 @@ class BrowserAutomation:
     validaciones y waits controlados.
     """
 
-    def __init__(self, page: Page, default_timeout: int = 10000, debug: bool = True):
+    def __init__(self, page: Page, default_timeout: int = 10000, debug: bool = True, speed_factor: float = 1.0):
         self.page = page
         self.default_timeout = default_timeout
         self.debug = debug
+        self.speed_factor = max(0.05, float(speed_factor))
 
     def _debug(self, message: str) -> None:
         if self.debug:
@@ -124,14 +125,17 @@ class BrowserAutomation:
             locator.scroll_into_view_if_needed()
             locator.click()
 
+            scaled_min = max(1, int(min_delay * self.speed_factor))
+            scaled_max = max(scaled_min, int(max_delay * self.speed_factor))
+
             if clear_first:
                 self.page.keyboard.press("Control+A")
                 self.page.keyboard.press("Backspace")
-                time.sleep(random.uniform(0.1, 0.25))
+                time.sleep(random.uniform(0.05 * self.speed_factor, 0.15 * self.speed_factor))
 
             for char in text:
-                self.page.keyboard.type(char, delay=random.randint(min_delay, max_delay))
-                time.sleep(random.uniform(0.01, 0.05))
+                self.page.keyboard.type(char, delay=random.randint(scaled_min, scaled_max))
+                time.sleep(random.uniform(0.005 * self.speed_factor, 0.02 * self.speed_factor))
 
             self._debug(f"Escritura completada en '{resolved}'")
             return True
@@ -418,7 +422,7 @@ class BrowserAutomation:
             return False
 
     def wait_human(self, min_seconds: float = 0.3, max_seconds: float = 1.2) -> None:
-        time.sleep(random.uniform(min_seconds, max_seconds))
+        time.sleep(random.uniform(min_seconds * self.speed_factor, max_seconds * self.speed_factor))
 
 
 __all__ = ["BrowserAutomation", "HtmlElement"]

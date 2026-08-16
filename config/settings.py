@@ -1,0 +1,50 @@
+"""Configuración global de automatización y tiempos de ejecución."""
+
+from pathlib import Path
+
+
+class AutomationConfig:
+    """Parámetros de velocidad, delays y rutas para los algoritmos."""
+
+    # Factor global multiplicador de tiempos y esperas.
+    # 1.0 = Tiempo normal
+    # 0.5 = Doble de rápido (mitad de tiempo en delays)
+    # 0.2 = Ultra-rápido
+    # 1.5 = Modo pausado / más humano
+    SPEED_FACTOR: float = 1.0
+
+    # Ruta del archivo con el diccionario de perfiles objetivo
+    TARGETS_FILE: str = "targets/profiles_dict.txt"
+
+    # Límite máximo de páginas a escanear
+    MAX_SCAN_PAGES: int = 100
+
+    # Cooldown entre envío de mensajes en segundos
+    MESSAGE_COOLDOWN_SECONDS: float = 2.5
+
+    # Cantidad de stickers a enviar
+    STICKER_COUNT: int = 5
+
+    # Intervalo entre clics de stickers en milisegundos
+    STICKER_INTERVAL_MS: int = 400
+
+    # Retardo por caracter al escribir texto humano (en milisegundos)
+    TYPING_MIN_DELAY_MS: int = 15
+    TYPING_MAX_DELAY_MS: int = 45
+
+    # Timeout estándar para localizar elementos (en milisegundos)
+    DEFAULT_TIMEOUT_MS: int = 10000
+
+    @classmethod
+    def delay_ms(cls, base_ms: int | float) -> int:
+        """Devuelve el tiempo en milisegundos escalado por SPEED_FACTOR."""
+        return max(1, int(base_ms * cls.SPEED_FACTOR))
+
+    @classmethod
+    def delay_s(cls, base_seconds: float) -> float:
+        """Devuelve el tiempo en segundos escalado por SPEED_FACTOR."""
+        return max(0.01, base_seconds * cls.SPEED_FACTOR)
+
+    @classmethod
+    def get_targets_path(cls) -> Path:
+        return Path(__file__).resolve().parent.parent / cls.TARGETS_FILE
