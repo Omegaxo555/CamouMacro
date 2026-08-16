@@ -213,7 +213,7 @@ class AllfeelloveAuto:
 
         result = self.automation.select_multiselect_option(
             ageFromSelect,
-            '34',
+            '41',
             search_selector=ageFromInput,
             timeout=5000,
         )
@@ -221,7 +221,7 @@ class AllfeelloveAuto:
 
         result = self.automation.select_multiselect_option(
             ageToSelect,
-            '46',
+            '41',
             search_selector=ageToInput,
             timeout=5000,
         )
