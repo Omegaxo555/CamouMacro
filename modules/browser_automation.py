@@ -229,95 +229,79 @@ class BrowserAutomation:
         search_selector: Optional[Union[str, HtmlElement]] = None,
         timeout: Optional[int] = None,
     ) -> bool:
-        """Selecciona una opción dentro de un multiselect Vue/Allfeellove con tiempos mínimos."""
+        """Selecciona una opción dentro de un multiselect Vue/Allfeellove de forma rápida, directa y limpia."""
         timeout_value = timeout or self.default_timeout
-        short_timeout = min(timeout_value, 500)
-        container_ref = str(container_selector)
-        is_country_multiselect = "country" in container_ref.lower() or "select-country" in container_ref.lower()
+        op_timeout = min(timeout_value, 2000)
+        resolved_container = self.resolve_selector(container_selector)
+        container = self.page.locator(resolved_container).first
 
         try:
-            container = self.locator(container_selector, short_timeout)
+            # 1. Espera rápida a visibilidad del multiselect
+            container.wait_for(state="visible", timeout=op_timeout)
 
-            try:
-                selected_text = container.locator("span.multiselect__single").text_content()
-                if selected_text and option_text.lower() in str(selected_text).lower():
-                    return True
-            except Exception:
-                pass
-
-            try:
-                if container.is_visible():
-                    container.click()
-                else:
-                    self.page.locator(self.resolve_selector(container_selector)).first.click()
-            except PlaywrightError:
+            # 2. Comprobación instantánea sin esperas de valor ya seleccionado
+            single_locator = container.locator("span.multiselect__single")
+            if single_locator.count() > 0:
                 try:
-                    self.page.locator(f"{self.resolve_selector(container_selector)} .ui-select_icon").click()
-                except PlaywrightError:
-                    pass
-
-            if search_selector is not None:
-                try:
-                    search_box = self.locator(search_selector, short_timeout)
-                    if search_box.count() > 0:
-                        search_box.first.wait_for(state="visible", timeout=short_timeout)
-                        search_box.first.fill("")
-                        search_box.first.press("Control+A")
-                        search_box.first.fill(option_text)
-                        time.sleep(random.uniform(0.02, 0.05))
-
-                        option_candidates = self.page.locator("[role='option']")
-                        candidate_count = min(option_candidates.count(), 6)
-                        for index in range(candidate_count):
-                            candidate = option_candidates.nth(index)
-                            candidate_text = (candidate.text_content() or "").strip()
-                            if candidate_text and option_text.lower() in candidate_text.lower():
-                                candidate.click()
-                                return True
-
-                        if is_country_multiselect:
-                            search_box.first.press("ArrowDown")
-                            search_box.first.press("Enter")
-                            return True
-                except PlaywrightError:
-                    pass
-
-            direct_option_selectors = [
-                f"div[role='option']:has-text('{option_text}')",
-                f"li:has-text('{option_text}')",
-                f"span:has-text('{option_text}')",
-                f"[role='option'] >> text={option_text}",
-                f"text={option_text}",
-            ]
-
-            for selector in direct_option_selectors:
-                try:
-                    candidate = self.page.locator(selector).first
-                    if candidate.is_visible():
-                        candidate.click()
+                    current_val = (single_locator.first.inner_text(timeout=150) or "").strip()
+                    if current_val.lower() == option_text.strip().lower():
+                        self._debug(f"Multiselect '{resolved_container}' ya tiene seleccionado '{option_text}'")
                         return True
                 except PlaywrightError:
-                    continue
+                    pass
 
-            try:
-                target_input = self.page.locator(f"{self.resolve_selector(container_selector)} input.multiselect__input")
-                if target_input.count() > 0:
-                    target_input.first.fill(option_text)
-                    target_input.first.press("Enter")
-                    return True
-            except PlaywrightError:
-                pass
+            # 3. Localizar input del multiselect (por search_selector o input interno)
+            input_locator = None
+            if search_selector is not None:
+                search_loc = self.locator(search_selector, timeout=op_timeout).first
+                if search_loc.count() > 0:
+                    input_locator = search_loc
 
-            try:
-                option = self.page.get_by_text(option_text, exact=False).first
-                if option.is_visible():
-                    option.click()
+            if input_locator is None:
+                fallback_input = container.locator("input.multiselect__input").first
+                if fallback_input.count() > 0:
+                    input_locator = fallback_input
+
+            # 4. Si hay input, escribir y confirmar la opción
+            if input_locator is not None:
+                input_locator.click(timeout=op_timeout)
+                input_locator.fill(option_text, timeout=op_timeout)
+                # Pausa mínima para reactividad de Vue
+                self.page.wait_for_timeout(50)
+
+                # Intentar click en la opción coincidente dentro del contenedor
+                matching_option = container.locator(
+                    ".multiselect__option, .multiselect__element, [role='option']"
+                ).filter(has_text=option_text).first
+
+                if matching_option.count() > 0 and matching_option.is_visible():
+                    matching_option.click(timeout=op_timeout)
+                    self._debug(f"Opción '{option_text}' seleccionada por click en '{resolved_container}'")
                     return True
-            except PlaywrightError:
-                pass
+
+                # En Vue-multiselect presionar Enter selecciona la opción filtrada/resaltada
+                input_locator.press("Enter", timeout=op_timeout)
+                self._debug(f"Opción '{option_text}' seleccionada con Enter en '{resolved_container}'")
+                return True
+
+            # 5. Si no hay input directo, abrir dropdown y hacer click en la opción
+            container.click(timeout=op_timeout)
+            self.page.wait_for_timeout(50)
+
+            matching_option = container.locator(
+                ".multiselect__option, .multiselect__element, [role='option']"
+            ).filter(has_text=option_text).first
+
+            if matching_option.count() > 0:
+                matching_option.wait_for(state="visible", timeout=op_timeout)
+                matching_option.click(timeout=op_timeout)
+                self._debug(f"Opción '{option_text}' seleccionada tras desplegar '{resolved_container}'")
+                return True
 
             return False
-        except PlaywrightError:
+
+        except PlaywrightError as exc:
+            self._debug(f"Error al seleccionar '{option_text}' en '{resolved_container}': {exc}")
             return False
 
     def check_checkbox(self, selector: str, check: bool = True, timeout: Optional[int] = None) -> bool:
