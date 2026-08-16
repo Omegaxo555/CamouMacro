@@ -253,6 +253,9 @@ class AllfeelloveAuto:
             'p.name',
             '[data-test-id*="person person-name"]',
             '[data-test-id*="person-name" i]',
+            '[class*="name" i]',
+            '[data-testid*="name" i]',
+            'h3, h4, h5',
         ]
 
         names: list[str] = []
@@ -273,7 +276,7 @@ class AllfeelloveAuto:
                         continue
 
                     lowered = text.lower()
-                    if any(token in lowered for token in ["ad", "sponsored", "anuncio", "promo"]):
+                    if any(token in lowered for token in ["ad", "sponsored", "anuncio", "promo", "search", "results", "no matches"]):
                         continue
 
                     key = self._normalise_text(text)
@@ -283,6 +286,19 @@ class AllfeelloveAuto:
                     names.append(text)
             except Exception:
                 continue
+
+        if not names:
+            try:
+                body_text = (self.driver.page.locator("body").inner_text() or "")
+                tokens = re.findall(r"\b[A-Z][a-z]{2,}(?:\s+[A-Z][a-z]{2,})?\b", body_text)
+                for token in tokens:
+                    key = self._normalise_text(token)
+                    if not key or key in seen:
+                        continue
+                    seen.add(key)
+                    names.append(token.strip())
+            except Exception:
+                pass
 
         return names[:12]
 
@@ -718,22 +734,28 @@ class AllfeelloveAuto:
             print(f"[allfeellove_auto] No se pudieron enviar stickers: {exc}")
 
     def _go_to_next_profile_page(self) -> bool:
-        next_page_selector = (
-            'button[data-test-id="cmp:ui-button click:change-page-options-current-page next"]'
-        )
+        next_page_selectors = [
+            'button[data-test-id*="next"]',
+            'button[aria-label*="next" i]',
+            'button:has-text("Next")',
+            'button >> text=Next',
+            'a:has-text("Next")',
+            '[data-test-id*="change-page"]',
+        ]
 
         for attempt in range(1, 6):
-            try:
-                next_button = self.driver.page.locator(next_page_selector)
-                if next_button.count() > 0 and next_button.first.is_visible():
-                    self.driver.page.wait_for_timeout(800)
-                    next_button.first.click()
-                    self.driver.page.wait_for_load_state("networkidle", timeout=min(self.driver.timeout, 15000))
-                    return True
-            except Exception:
-                pass
+            for selector in next_page_selectors:
+                try:
+                    candidate = self.driver.page.locator(selector).first
+                    if candidate.count() > 0 and candidate.is_visible():
+                        self.driver.page.wait_for_timeout(800)
+                        candidate.click(force=True)
+                        self.driver.page.wait_for_load_state("networkidle", timeout=min(self.driver.timeout, 15000))
+                        return True
+                except Exception:
+                    continue
 
-            self.driver.page.wait_for_timeout(300)
+            self.driver.page.wait_for_timeout(400)
 
         return False
 
