@@ -209,7 +209,7 @@ class AllfeelloveAuto:
         )
         print(f'[allfeellove_auto] País seleccionado: {result}')
 
-        age_filter = random.choice(["41", "34", "46"])
+        age_filter = 41#random.choice(["41", "34", "46"])
 
         result = self.automation.select_multiselect_option(
             ageFromSelect,
