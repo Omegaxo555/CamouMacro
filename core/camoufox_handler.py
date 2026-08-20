@@ -111,6 +111,9 @@ class CamoufoxHandler:
             return None
 
         archive_path = Path(self.profile_template)
+        if not archive_path.is_absolute() and not archive_path.is_file():
+            project_root = Path(__file__).resolve().parent.parent
+            archive_path = project_root / archive_path
         if not archive_path.is_file():
             logging.warning(f"La plantilla de perfil no existe: {self.profile_template}. Intentando generarla automáticamente...")
             try:
@@ -120,7 +123,9 @@ class CamoufoxHandler:
                 logging.error(f"No se pudo crear la plantilla de perfil automática: {exc}")
                 raise FileNotFoundError(f"el archivo de plantilla de perfil no existe: {self.profile_template}") from exc
 
-        self.temp_dir = Path(tempfile.mkdtemp(prefix="camoufox_session_", dir="/tmp"))
+        temp_root = Path(tempfile.gettempdir())
+        temp_root.mkdir(parents=True, exist_ok=True)
+        self.temp_dir = Path(tempfile.mkdtemp(prefix="camoufox_session_", dir=str(temp_root)))
         logging.info(f"Extrayendo plantilla de perfil a: {self.temp_dir}")
 
         logging.info(f"Extrayendo plantilla de perfil desde: {archive_path.name} en memoria")
@@ -250,7 +255,7 @@ class CamoufoxHandler:
     def close(self) -> None:
         """
         Cierra el navegador y garantiza la eliminación total del perfil
-        temporal almacenado en /tmp.
+        temporal almacenado en el directorio temporal del sistema.
         """
         logging.info("Iniciando proceso de cierre y limpieza...")
         

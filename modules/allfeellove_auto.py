@@ -623,29 +623,60 @@ class AllfeelloveAuto:
 
         return False
 
-    def _scroll_to_next_profile_view(self) -> tuple[bool, bool]:
-        """Desplaza una vista y devuelve si avanzó y si la página ya está al final."""
+    def _scroll_to_next_profile_view(self) -> tuple[bool, bool, dict]:
+        """Desplaza el contenedor real de resultados y devuelve sus métricas."""
         try:
             state = self.driver.page.evaluate(
                 """
                 () => {
-                    const before = window.scrollY;
-                    const step = Math.max(240, Math.floor(window.innerHeight * 0.8));
-                    window.scrollBy({top: step, behavior: 'auto'});
+                    const card = document.querySelector(
+                        'div.search-profile-card, [data-test-id*="file:search-item"], [data-test-id*="search-item"]'
+                    );
+                    const root = document.scrollingElement || document.documentElement;
+                    let container = root;
+                    let node = card;
+
+                    while (node && node !== document.body) {
+                        const style = getComputedStyle(node);
+                        if (node.scrollHeight > node.clientHeight + 12 &&
+                            (style.overflowY === 'auto' || style.overflowY === 'scroll')) {
+                            container = node;
+                            break;
+                        }
+                        node = node.parentElement;
+                    }
+
+                    const before = container.scrollTop;
+                    const viewportHeight = container === root ? window.innerHeight : container.clientHeight;
+                    const step = Math.max(180, Math.floor(viewportHeight * 0.75));
+                    container.scrollBy({top: step, behavior: 'auto'});
+                    const after = container.scrollTop;
+                    const maxScroll = Math.max(0, container.scrollHeight - viewportHeight);
+                    const loading = [...document.querySelectorAll(
+                        'div.search-profile-card, [data-test-id*="file:search-item"], [data-test-id*="search-item"]'
+                    )].filter((item) => {
+                        const style = getComputedStyle(item);
+                        return style.backgroundColor === 'rgb(255, 255, 255)' ||
+                            item.classList.contains('loading') ||
+                            item.getAttribute('aria-busy') === 'true';
+                    }).length;
                     return {
                         before,
-                        after: window.scrollY,
-                        bottom: window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 8,
-                        height: document.documentElement.scrollHeight
+                        after,
+                        maxScroll,
+                        bottom: after >= maxScroll - 8,
+                        height: container.scrollHeight,
+                        loading,
+                        container: container === root ? 'document' : (container.className || container.tagName)
                     };
                 }
                 """
             )
             advanced = state and state.get("after", 0) > state.get("before", 0)
-            return bool(advanced), bool(state and state.get("bottom"))
+            return bool(advanced), bool(state and state.get("bottom")), state or {}
         except Exception as exc:
             print(f"[allfeellove_auto] No se pudo desplazar a la siguiente vista: {exc}")
-            return False, False
+            return False, False, {}
 
     def _wait_for_new_profile_view(self, previous_signature: tuple[str, ...], timeout_ms: int = 2000) -> list[dict]:
         """Espera tarjetas nuevas tras un scroll, tolerando el lazy loading."""
@@ -695,7 +726,15 @@ class AllfeelloveAuto:
                     print(f"[allfeellove_auto] El perfil fue localizado, pero falló la interacción con '{matched_name}'.")
                 return True
 
-            advanced, at_bottom = self._scroll_to_next_profile_view()
+            advanced, at_bottom, scroll_state = self._scroll_to_next_profile_view()
+            print(
+                f"[allfeellove_auto] Confirmación vista {view_index}: "
+                f"tarjetas nuevas={len(new_cards)}, "
+                f"scroll={scroll_state.get('before', '?')} -> {scroll_state.get('after', '?')}, "
+                f"máximo={scroll_state.get('maxScroll', '?')}, "
+                f"cargando={scroll_state.get('loading', 0)}, "
+                f"contenedor={scroll_state.get('container', '?')}"
+            )
             if advanced:
                 stalled_views = 0
                 previous_signature = current_signature
@@ -704,7 +743,7 @@ class AllfeelloveAuto:
 
             stalled_views += 1
             print(f"[allfeellove_auto] Vista sin avance. Esperando carga ({stalled_views}/3)...")
-            self.driver.page.wait_for_timeout(1000)
+            self.driver.page.wait_for_timeout(1000 if scroll_state.get("loading", 0) else 500)
             previous_signature = current_signature
             if at_bottom and stalled_views >= 3:
                 print("[allfeellove_auto] Se alcanzó el final y no aparecen más tarjetas.")
