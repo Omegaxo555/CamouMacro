@@ -159,7 +159,7 @@ def build_driver_for_port(port: int = 9050) -> CamoufoxHandler:
         tor_proxy=f"socks5://127.0.0.1:{port}",
         profile_template="templates/perfil_base.tar.gz",
         headless=False,
-        window_size=(600, 800),
+        window_size=(560, 420),
     )
 
 
@@ -201,7 +201,7 @@ def main():
         tor_proxy=f"socks5://127.0.0.1:{current_port}",
         profile_template="templates/perfil_base.tar.gz",
         headless=headless_mode,
-        window_size=(600, 800),
+        window_size=(560, 420),
     )
 
     try:
