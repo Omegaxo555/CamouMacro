@@ -173,7 +173,11 @@ class AllfeelloveAuto:
 
         #------------Busqueda de los perfiles-----------#
 
-        accountSearch = HtmlElement.css('#AccountSearch')
+        accountSearch = HtmlElement.css(
+            'a[data-test-id="file:r-u-tab-bar search"], '
+            '#AccountSearch, '
+            'a[href="/search"]'
+        )
         allpeopleButton = HtmlElement.css('label.chip-root[data-test-id="file:extend-search click:change-online-filter-false all"]')
         filtersButton = HtmlElement.css('[data-test-id="file:extend-search click:show-filter filters"]')
 
@@ -322,10 +326,30 @@ class AllfeelloveAuto:
             card_locator = None
             if card_info.get("id"):
                 card_locator = self.driver.page.locator(f"#{card_info['id']}").first
-            elif card_info.get("testId"):
-                card_locator = self.driver.page.locator(f'[data-test-id="{card_info["testId"]}"]').first
             else:
-                card_locator = self.driver.page.locator('div.search-profile-card, [data-test-id*="search-item"]').nth(card_info["index"])
+                name_candidates = self.driver.page.locator(
+                    'p[data-test-id*="person-name"], '
+                    'p.ui-typography.color.name, p.name, .name'
+                )
+                for candidate_index in range(name_candidates.count()):
+                    candidate = name_candidates.nth(candidate_index)
+                    try:
+                        candidate_name = self._normalise_text(candidate.text_content() or "")
+                        if candidate_name != name_text:
+                            continue
+                        candidate_card = candidate.locator(
+                            "xpath=ancestor::*[contains(@data-test-id,'search-item')][1]"
+                        ).first
+                        if candidate_card.count() > 0:
+                            card_locator = candidate_card
+                            break
+                    except Exception:
+                        continue
+
+                if card_locator is None:
+                    card_locator = self.driver.page.locator(
+                        'div.search-profile-card, [data-test-id*="search-item"]'
+                    ).nth(card_info["index"])
 
             return desired_name, desired_age, card_locator
 
@@ -599,42 +623,94 @@ class AllfeelloveAuto:
 
         return False
 
+    def _scroll_to_next_profile_view(self) -> tuple[bool, bool]:
+        """Desplaza una vista y devuelve si avanzó y si la página ya está al final."""
+        try:
+            state = self.driver.page.evaluate(
+                """
+                () => {
+                    const before = window.scrollY;
+                    const step = Math.max(240, Math.floor(window.innerHeight * 0.8));
+                    window.scrollBy({top: step, behavior: 'auto'});
+                    return {
+                        before,
+                        after: window.scrollY,
+                        bottom: window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 8,
+                        height: document.documentElement.scrollHeight
+                    };
+                }
+                """
+            )
+            advanced = state and state.get("after", 0) > state.get("before", 0)
+            return bool(advanced), bool(state and state.get("bottom"))
+        except Exception as exc:
+            print(f"[allfeellove_auto] No se pudo desplazar a la siguiente vista: {exc}")
+            return False, False
+
+    def _wait_for_new_profile_view(self, previous_signature: tuple[str, ...], timeout_ms: int = 2000) -> list[dict]:
+        """Espera tarjetas nuevas tras un scroll, tolerando el lazy loading."""
+        deadline = time.monotonic() + timeout_ms / 1000
+        latest_cards: list[dict] = []
+        while time.monotonic() < deadline:
+            latest_cards = self._get_cards_data_fast()
+            current_signature = tuple(
+                f"{self._normalise_text(card.get('name', ''))}:{card.get('age')}"
+                for card in latest_cards
+            )
+            if current_signature and current_signature != previous_signature:
+                return latest_cards
+            self.driver.page.wait_for_timeout(100)
+        return latest_cards
+
     def _scan_profiles_until_found(self, target_profiles: dict[str, int], max_pages: int = 25) -> bool:
-        """Búsqueda ultra rápida de perfiles a través de las páginas."""
-        for page_index in range(1, max_pages + 1):
-            # 1. Espera rápida a que haya tarjetas visibles (máx 1.5s, usualmente < 80ms)
-            cards_data = []
-            deadline = time.monotonic() + 1.5
-            while time.monotonic() < deadline:
-                cards_data = self._get_cards_data_fast()
-                if cards_data:
-                    break
-                self.driver.page.wait_for_timeout(50)
+        """Escanea resultados por vistas verticales, esperando tarjetas lazy-loaded."""
+        scanned_profiles: set[tuple[str, int | None]] = set()
+        previous_signature: tuple[str, ...] = ()
+        stalled_views = 0
 
-            visible_names = [c["name"] for c in cards_data]
-            print(f"[allfeellove_auto] Página {page_index}. Nombres visibles: {visible_names[:12]}")
+        for view_index in range(1, max_pages + 1):
+            cards_data = self._wait_for_new_profile_view(previous_signature, timeout_ms=2000)
+            current_signature = tuple(
+                f"{self._normalise_text(card.get('name', ''))}:{card.get('age')}"
+                for card in cards_data
+            )
+            new_cards = []
+            for card in cards_data:
+                profile_key = (self._normalise_text(card.get("name", "")), card.get("age"))
+                if profile_key not in scanned_profiles:
+                    scanned_profiles.add(profile_key)
+                    new_cards.append(card)
 
-            # 2. Búsqueda instantánea en memoria (0 ms)
-            matched_name, matched_age, matched_card = self._scan_profile_batch_fast(target_profiles, cards_data)
+            names = [card.get("name", "") for card in new_cards]
+            print(f"[allfeellove_auto] Vista {view_index}: {names or 'sin tarjetas nuevas'}")
 
+            matched_name, matched_age, matched_card = self._scan_profile_batch_fast(target_profiles, new_cards)
             if matched_card is not None:
                 self.last_found_profile_name = matched_name
                 self.last_found_profile_age = matched_age
-                print(f"[allfeellove_auto] Perfil '{matched_name}' ({matched_age}) encontrado en la página {page_index}.")
+                print(f"[allfeellove_auto] Perfil '{matched_name}' ({matched_age}) encontrado en la vista {view_index}.")
                 try:
                     self._interact_with_found_profile(matched_card)
-                    return True
                 except Exception:
-                    print(f"[allfeellove_auto] No se pudo abrir la tarjeta del perfil '{matched_name}' ({matched_age}), pero sí fue localizado.")
-                    return True
+                    print(f"[allfeellove_auto] El perfil fue localizado, pero falló la interacción con '{matched_name}'.")
+                return True
 
-            # 3. Si no se encontró en esta página, avanzar de inmediato
-            first_id = cards_data[0].get("id") or (cards_data[0].get("name") if cards_data else "")
-            print(f"[allfeellove_auto] Ninguno de {target_profiles} fue encontrado. Avanzando con Next...")
-            if not self._go_to_next_profile_page(current_first_id=first_id):
-                print(f"[allfeellove_auto] El botón Next no está disponible. Se terminó la búsqueda.")
+            advanced, at_bottom = self._scroll_to_next_profile_view()
+            if advanced:
+                stalled_views = 0
+                previous_signature = current_signature
+                self.driver.page.wait_for_timeout(100)
+                continue
+
+            stalled_views += 1
+            print(f"[allfeellove_auto] Vista sin avance. Esperando carga ({stalled_views}/3)...")
+            self.driver.page.wait_for_timeout(1000)
+            previous_signature = current_signature
+            if at_bottom and stalled_views >= 3:
+                print("[allfeellove_auto] Se alcanzó el final y no aparecen más tarjetas.")
                 return False
 
+        print(f"[allfeellove_auto] Se alcanzó el límite de {max_pages} vistas de escaneo.")
         return False
 
 

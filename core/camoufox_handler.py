@@ -1,5 +1,6 @@
 import sys
 import logging
+import platform
 import shutil
 import socket
 import tarfile
@@ -158,14 +159,12 @@ class CamoufoxHandler:
             else:
                 logging.warning("Tor no está disponible en 127.0.0.1:9050. Iniciando Camoufox sin proxy.")
 
-            viewport = {"width": self.window_size[0], "height": self.window_size[1]}
             camoufox_kwargs = {
                 "headless": self.headless,
                 "humanize": True,
-                "os": "linux",
+                "os": "windows" if platform.system() == "Windows" else "linux",
                 "geoip": tor_available,
                 "window": self.window_size,
-                "viewport": viewport,
             }
 
             if tor_available and self.proxy_server:
@@ -190,22 +189,18 @@ class CamoufoxHandler:
                 if pages:
                     self.page = pages[0]
                 else:
-                    self.page = context.new_page(viewport={"width": self.window_size[0], "height": self.window_size[1]})
+                    self.page = context.new_page()
             elif hasattr(context, "new_page"):
-                self.page = context.new_page(viewport={"width": self.window_size[0], "height": self.window_size[1]})
+                self.page = context.new_page()
             else:
                 self.page = context
 
             if self.page is not None:
-                try:
-                    self.page.set_viewport_size({"width": self.window_size[0], "height": self.window_size[1]})
-                except Exception:
-                    pass
                 self.page.set_default_timeout(self.timeout)
 
             logging.info("CamoufoxDriver inicializado exitosamente.")
             logging.info(f"Timeout por defecto del navegador: {self.timeout}ms")
-            logging.info(f"Ventana de navegador configurada en {self.window_size[0]}x{self.window_size[1]} (modo maximizado).")
+            logging.info(f"Ventana flotante configurada en {self.window_size[0]}x{self.window_size[1]}.")
             return True
 
         except PlaywrightError as e:

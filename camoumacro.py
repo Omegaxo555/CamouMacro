@@ -487,9 +487,10 @@ class AutomationConfig:
 
         try:
             if IS_WINDOWS:
+                python_command = subprocess.list2cmdline([PYTHON, str(MAIN_PY)])
                 cmd = (
                     f'title {title} && '
-                    f'"{PYTHON}" "{MAIN_PY}"'
+                    f'{python_command}'
                 )
                 proc = subprocess.Popen(
                     ["cmd", "/K", cmd],
