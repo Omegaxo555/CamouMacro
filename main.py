@@ -31,6 +31,7 @@ def find_tor_executable() -> str | None:
 
     if os.name == "nt":
         candidates.extend([
+            str(Path(__file__).resolve().parent / "tor" / "tor" / "tor.exe"),
             "tor.exe",
             shutil.which("tor.exe"),
             r"C:\Users\paulo\AppData\Local\Tor Browser\Browser\TorBrowser\Tor\tor.exe",
@@ -154,11 +155,11 @@ def run_exit() -> None:
     print(f"{TerminalUI.ANSI['fg_yellow']}Saliendo del menú...{TerminalUI.ANSI['reset']}")
 
 
-def build_driver_for_port(port: int = 9050) -> CamoufoxHandler:
+def build_driver_for_port(port: int = 9050, headless: bool = False) -> CamoufoxHandler:
     return CamoufoxHandler(
         tor_proxy=f"socks5://127.0.0.1:{port}",
         profile_template="templates/perfil_base.tar.gz",
-        headless=False,
+        headless=headless,
         window_size=(560, 420),
     )
 
@@ -176,79 +177,69 @@ def show_algorithm_menu() -> dict:
     return ALGORITHMS[selected_index]
 
 
-def run_algorithm_with_debug(driver: CamoufoxHandler, selected: dict) -> None:
+def run_algorithm_with_debug(driver: CamoufoxHandler, selected: dict) -> bool:
     option_id = selected["id"]
     print(f"\n{TerminalUI.ANSI['fg_cyan']}[debug] Iniciando algoritmo: {option_id}{TerminalUI.ANSI['reset']}")
     try:
         selected["handler"](driver)
         print(f"{TerminalUI.ANSI['fg_green']}[debug] Finalizó el algoritmo: {option_id}{TerminalUI.ANSI['reset']}")
+        return True
     except Exception as exc:
         print(f"{TerminalUI.ANSI['fg_red']}[debug] ERROR en algoritmo: {option_id}{TerminalUI.ANSI['reset']}")
         print(f"{TerminalUI.ANSI['fg_red']}[debug] Excepción: {exc}{TerminalUI.ANSI['reset']}")
         traceback.print_exc()
         if driver.page is not None:
             print(f"{TerminalUI.ANSI['fg_yellow']}[debug] URL actual: {driver.page.url}{TerminalUI.ANSI['reset']}")
-        print(f"{TerminalUI.ANSI['fg_yellow']}[debug] Presiona Enter para volver al menú...{TerminalUI.ANSI['reset']}")
-        input()
+        return False
 
 
 def main():
     current_port = int(os.getenv("TOR_PORT", "9050"))
     headless_mode = os.getenv("HEADLESS", "false").lower() == "true"
-    start_tor_background(port=current_port)
-
-    driver = CamoufoxHandler(
-        tor_proxy=f"socks5://127.0.0.1:{current_port}",
-        profile_template="templates/perfil_base.tar.gz",
-        headless=headless_mode,
-        window_size=(560, 420),
-    )
+    driver = build_driver_for_port(current_port, headless=headless_mode)
 
     try:
-        if not driver.initialize():
-            print(f"{TerminalUI.ANSI['fg_red']}[-] Error al inicializar el driver.{TerminalUI.ANSI['reset']}")
+        auto_algo = os.getenv("ALGO")
+        if auto_algo:
+            matching = [item for item in ALGORITHMS if item["id"] == auto_algo]
+            selected = matching[0] if matching else show_algorithm_menu()
+        else:
+            selected = show_algorithm_menu()
+
+        if selected["id"] == "exit":
+            selected["handler"]()
             return
 
-        auto_algo = os.getenv("ALGO")
-        first_run = True
-
+        restart_count = 0
         while True:
-            if first_run and auto_algo:
-                matching = [item for item in ALGORITHMS if item["id"] == auto_algo]
-                selected = matching[0] if matching else show_algorithm_menu()
-                first_run = False
+            print(f"{TerminalUI.ANSI['fg_cyan']}[lifecycle]{TerminalUI.ANSI['reset']} Inicializando instancia en puerto {current_port}...")
+            start_tor_background(port=current_port)
+
+            driver = build_driver_for_port(current_port, headless=headless_mode)
+            if not driver.initialize():
+                print(f"{TerminalUI.ANSI['fg_red']}[-] Error al inicializar Camoufox. Se reiniciará automáticamente.{TerminalUI.ANSI['reset']}")
+                restart_reason = "fallo al inicializar Camoufox"
             else:
-                selected = show_algorithm_menu()
+                algorithm_ok = run_algorithm_with_debug(driver, selected)
+                restart_reason = "finalización del algoritmo" if algorithm_ok else "error fatal del algoritmo"
 
-            option_id = selected["id"]
+            restart_count += 1
+            print(
+                f"{TerminalUI.ANSI['fg_yellow']}[lifecycle]{TerminalUI.ANSI['reset']} "
+                f"Reinicio #{restart_count} por {restart_reason}: cerrando Camoufox, "
+                "eliminando perfil temporal y rotando puerto."
+            )
+            driver.close()
+            stop_tor_background()
 
-            if option_id == "exit":
-                selected["handler"]()
-                break
+            tor_ports = (9050, 9150, 9051, 9052)
+            current_index = tor_ports.index(current_port) if current_port in tor_ports else -1
+            current_port = tor_ports[(current_index + 1) % len(tor_ports)]
+            print(f"{TerminalUI.ANSI['fg_cyan']}[lifecycle]{TerminalUI.ANSI['reset']} Próxima instancia: puerto {current_port}.")
+            time.sleep(1)
 
-            run_algorithm_with_debug(driver, selected)
-
-            repeat_current = input("¿Quieres repetir este mismo algoritmo? (S/N) [N]: ").strip().lower()
-            if repeat_current in ("", "s", "si", "y", "yes"):
-                print(f"{TerminalUI.ANSI['fg_yellow']}[restart]{TerminalUI.ANSI['reset']} Reiniciando navegador y Tor para repetir el algoritmo...")
-                driver.close()
-                stop_tor_background()
-                current_port = 9051 if current_port == 9050 else 9050
-                if not start_tor_background(port=current_port):
-                    print(f"{TerminalUI.ANSI['fg_red']}[restart]{TerminalUI.ANSI['reset']} No se pudo arrancar Tor en el puerto {current_port}.")
-                    break
-                driver = build_driver_for_port(current_port)
-                if not driver.initialize():
-                    print(f"{TerminalUI.ANSI['fg_red']}[restart]{TerminalUI.ANSI['reset']} Error al reinicializar el navegador.")
-                    break
-                continue
-
-            again = input("¿Quieres ejecutar otro algoritmo? (S/N) [S]: ").strip().lower()
-            if again in ("", "s", "si", "y", "yes"):
-                continue
-            print("Saliendo del menú.")
-            break
-
+    except KeyboardInterrupt:
+        print(f"\n{TerminalUI.ANSI['fg_yellow']}[lifecycle]{TerminalUI.ANSI['reset']} Proceso detenido por el usuario.")
     finally:
         driver.close()
         stop_tor_background()

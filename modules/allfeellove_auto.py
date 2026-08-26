@@ -135,7 +135,8 @@ class AllfeelloveAuto:
         nextStep_button = HtmlElement.css('button[data-test-id="cmp:ui-button click:skip skip"]')
         nextStep2_button = HtmlElement.css('button[data-test-id="cmp:ui-button click:pref-gender female"]')
         nextStep3_button = HtmlElement.css('button[data-test-id="cmp:ui-button click:skip skip"]')
-        nextStep4_button = HtmlElement.css('button[data-test-id="cmp:ui-button click:onSkip Skip"]')
+        skipToStep4_button = HtmlElement.css('button[data-test-id="cmp:ui-modal click:close"]')
+        nextStep4_button = HtmlElement.css('button[data-test-id="cmp:ui-button click:skip skip"]')
         nextStep5_button = HtmlElement.css('button[data-test-id="cmp:ui-button click:next Continue"]')
         claimtokens = HtmlElement.css('[data-test-id="cmp:button-new click:claim-welcome-bonus"]')
         cancelEmailConfirm = HtmlElement.css('#Close')
@@ -155,6 +156,10 @@ class AllfeelloveAuto:
         self.automation.wait_for_visible(nextStep3_button, timeout=10000)
         result = self.automation.safe_click(nextStep3_button)
         print(f"[allfeellove_auto] Verificando existencia de botón de skip1: {result}")
+
+        self.automation.wait_for_visible(skipToStep4_button, timeout=10000)
+        result = self.automation.safe_click(skipToStep4_button)
+        print(f"[allfeellove_auto] Verificando existencia de botón de toSkip: {result}")
 
         self.automation.wait_for_visible(nextStep4_button, timeout=10000)
         result = self.automation.safe_click(nextStep4_button)
@@ -217,7 +222,7 @@ class AllfeelloveAuto:
 
         result = self.automation.select_multiselect_option(
             ageFromSelect,
-            '41',
+            age_filter,
             search_selector=ageFromInput,
             timeout=5000,
         )
@@ -225,7 +230,7 @@ class AllfeelloveAuto:
 
         result = self.automation.select_multiselect_option(
             ageToSelect,
-            '41',
+            age_filter,
             search_selector=ageToInput,
             timeout=5000,
         )
@@ -264,10 +269,13 @@ class AllfeelloveAuto:
             const cards = document.querySelectorAll('div.search-profile-card, [data-test-id*="file:search-item"], [data-test-id*="search-item"]');
             const results = [];
             const seen = new Set();
+            let visibleIndex = 0;
 
             for (let i = 0; i < cards.length; i++) {
                 const card = cards[i];
                 if (!card || card.offsetParent === null) continue;
+                const marker = `camoumacro-card-${visibleIndex++}`;
+                card.setAttribute('data-camoumacro-card', marker);
 
                 const nameEl = card.querySelector('p[data-test-id*="person-name"], p.ui-typography.color.name, p.name, .name');
                 if (!nameEl) continue;
@@ -286,6 +294,7 @@ class AllfeelloveAuto:
 
                 results.push({
                     index: i,
+                    marker,
                     id: card.id || '',
                     testId: card.getAttribute('data-test-id') || '',
                     name: rawName,
@@ -324,9 +333,15 @@ class AllfeelloveAuto:
                 continue
 
             card_locator = None
+            if card_info.get("marker"):
+                card_locator = self.driver.page.locator(
+                    f'[data-camoumacro-card="{card_info["marker"]}"]'
+                ).first
+                if card_locator.count() == 0:
+                    card_locator = None
             if card_info.get("id"):
-                card_locator = self.driver.page.locator(f"#{card_info['id']}").first
-            else:
+                card_locator = card_locator or self.driver.page.locator(f"#{card_info['id']}").first
+            if card_locator is None:
                 name_candidates = self.driver.page.locator(
                     'p[data-test-id*="person-name"], '
                     'p.ui-typography.color.name, p.name, .name'
@@ -460,6 +475,7 @@ class AllfeelloveAuto:
             'button[data-test-id="cmp:ui-button click:go-to-profile-via-button"]',
             'button[data-test-id*="go-to-profile"]',
             'a[data-test-id*="track-go-to-profile"]',
+            '[data-test-id*="go-to-profile-via-button"]',
             'a.photo-card-root',
             'button:has-text("View Profile")',
         ]
@@ -490,7 +506,11 @@ class AllfeelloveAuto:
                     break
 
             if view_button is None:
-                view_button = self.driver.page.locator(view_profile_selectors[0]).first
+                print(
+                    f"[allfeellove_auto] La tarjeta de '{self.last_found_profile_name}' "
+                    "no contiene un botón View Profile; no se usará otro perfil."
+                )
+                return
 
             view_button.wait_for(state="visible", timeout=8000)
             view_button.click(force=True)
@@ -678,7 +698,7 @@ class AllfeelloveAuto:
             print(f"[allfeellove_auto] No se pudo desplazar a la siguiente vista: {exc}")
             return False, False, {}
 
-    def _wait_for_new_profile_view(self, previous_signature: tuple[str, ...], timeout_ms: int = 2000) -> list[dict]:
+    def _wait_for_new_profile_view(self, previous_signature: tuple[str, ...], timeout_ms: int = 1200) -> list[dict]:
         """Espera tarjetas nuevas tras un scroll, tolerando el lazy loading."""
         deadline = time.monotonic() + timeout_ms / 1000
         latest_cards: list[dict] = []
@@ -699,8 +719,8 @@ class AllfeelloveAuto:
         previous_signature: tuple[str, ...] = ()
         stalled_views = 0
 
-        for view_index in range(1, max_pages + 1):
-            cards_data = self._wait_for_new_profile_view(previous_signature, timeout_ms=2000)
+        for _ in range(1, max_pages + 1):
+            cards_data = self._wait_for_new_profile_view(previous_signature, timeout_ms=1200)
             current_signature = tuple(
                 f"{self._normalise_text(card.get('name', ''))}:{card.get('age')}"
                 for card in cards_data
@@ -713,13 +733,18 @@ class AllfeelloveAuto:
                     new_cards.append(card)
 
             names = [card.get("name", "") for card in new_cards]
-            print(f"[allfeellove_auto] Vista {view_index}: {names or 'sin tarjetas nuevas'}")
+            if names:
+                print(f"[allfeellove_auto] Personas escaneadas: {', '.join(names)}")
 
             matched_name, matched_age, matched_card = self._scan_profile_batch_fast(target_profiles, new_cards)
             if matched_card is not None:
                 self.last_found_profile_name = matched_name
                 self.last_found_profile_age = matched_age
-                print(f"[allfeellove_auto] Perfil '{matched_name}' ({matched_age}) encontrado en la vista {view_index}.")
+                print(f"[allfeellove_auto] Objetivo encontrado: '{matched_name}' ({matched_age}).")
+                try:
+                    print(f"[allfeellove_auto] Tarjeta objetivo: {matched_card.inner_text(timeout=3000)[:240]!r}")
+                except Exception:
+                    print("[allfeellove_auto] No se pudo leer el texto de la tarjeta objetivo.")
                 try:
                     self._interact_with_found_profile(matched_card)
                 except Exception:
@@ -727,29 +752,19 @@ class AllfeelloveAuto:
                 return True
 
             advanced, at_bottom, scroll_state = self._scroll_to_next_profile_view()
-            print(
-                f"[allfeellove_auto] Confirmación vista {view_index}: "
-                f"tarjetas nuevas={len(new_cards)}, "
-                f"scroll={scroll_state.get('before', '?')} -> {scroll_state.get('after', '?')}, "
-                f"máximo={scroll_state.get('maxScroll', '?')}, "
-                f"cargando={scroll_state.get('loading', 0)}, "
-                f"contenedor={scroll_state.get('container', '?')}"
-            )
             if advanced:
                 stalled_views = 0
                 previous_signature = current_signature
-                self.driver.page.wait_for_timeout(100)
+                self.driver.page.wait_for_timeout(60)
                 continue
 
             stalled_views += 1
-            print(f"[allfeellove_auto] Vista sin avance. Esperando carga ({stalled_views}/3)...")
-            self.driver.page.wait_for_timeout(1000 if scroll_state.get("loading", 0) else 500)
+            self.driver.page.wait_for_timeout(700 if scroll_state.get("loading", 0) else 250)
             previous_signature = current_signature
             if at_bottom and stalled_views >= 3:
                 print("[allfeellove_auto] Se alcanzó el final y no aparecen más tarjetas.")
                 return False
 
-        print(f"[allfeellove_auto] Se alcanzó el límite de {max_pages} vistas de escaneo.")
         return False
 
 
