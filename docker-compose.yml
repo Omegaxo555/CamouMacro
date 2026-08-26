@@ -1,0 +1,18 @@
+services:
+  camoumacro:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: camoumacro_hybrid
+    restart: unless-stopped
+    environment:
+      - HEADLESS=true
+      - TOR_PORT=9050
+      - SPEED_FACTOR=1.0
+      - ALGO=allfeellove_auto
+    ports:
+      - "9050:9050"
+    volumes:
+      # Opcional: montar perfiles personalizados o targets si se desea
+      - ./python_engine/targets:/app/python_engine/targets
+      - ./python_engine/templates:/app/python_engine/templates

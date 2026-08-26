@@ -48,6 +48,19 @@ func LoadDefaultConfig() *AppConfig {
 		headless = true
 	}
 
+	if envPython := os.Getenv("PYTHON_PATH"); envPython != "" {
+		pythonPath = envPython
+	}
+	if envEngine := os.Getenv("PYTHON_ENGINE_DIR"); envEngine != "" {
+		engineDir = envEngine
+		runnerScript = filepath.Join(engineDir, "runner.py")
+	}
+
+	algo := "allfeellove_auto"
+	if envAlgo := os.Getenv("ALGO"); envAlgo != "" {
+		algo = envAlgo
+	}
+
 	return &AppConfig{
 		PythonExecutable: pythonPath,
 		PythonEngineDir:  engineDir,
@@ -55,7 +68,7 @@ func LoadDefaultConfig() *AppConfig {
 		TorPort:          torPort,
 		Headless:         headless,
 		SpeedFactor:      speed,
-		SelectedAlgo:     "allfeellove_auto",
+		SelectedAlgo:     algo,
 		WindowWidth:      560,
 		WindowHeight:     420,
 	}
