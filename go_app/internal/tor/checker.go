@@ -1,14 +1,14 @@
 package tor
 
 import (
-	"fmt"
 	"net"
+	"strconv"
 	"time"
 )
 
 // IsPortOpen comprueba si un puerto TCP está abierto y aceptando conexiones.
 func IsPortOpen(host string, port int, timeoutSec float64) bool {
-	address := fmt.Sprintf("%s:%d", host, port)
+	address := net.JoinHostPort(host, strconv.Itoa(port))
 	timeout := time.Duration(timeoutSec * float64(time.Second))
 	conn, err := net.DialTimeout("tcp", address, timeout)
 	if err != nil {
