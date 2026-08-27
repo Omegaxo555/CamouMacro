@@ -10,7 +10,9 @@ RUN go mod download
 
 COPY go_app/ ./
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-    go build -ldflags="-s -w" -o /build/camoumacro-cli ./cmd/camoumacro-cli
+    go build -ldflags="-s -w" -o /build/camoumacro-cli ./cmd/camoumacro-cli && \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build -ldflags="-s -w" -o /build/camoumacro-tui ./cmd/camoumacro-tui
 
 # ==============================================================================
 # Stage 2: Runtime Completo (Python 3.12 + Tor + Camoufox/Firefox)
@@ -63,9 +65,10 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copiar el código de Python Engine
 COPY python_engine/ ./python_engine/
 
-# Copiar el binario compilado de Go desde el stage builder
+# Copiar los binarios compilados de Go desde el stage builder
 COPY --from=builder /build/camoumacro-cli /usr/local/bin/camoumacro-cli
-RUN chmod +x /usr/local/bin/camoumacro-cli
+COPY --from=builder /build/camoumacro-tui /usr/local/bin/camoumacro-tui
+RUN chmod +x /usr/local/bin/camoumacro-cli /usr/local/bin/camoumacro-tui
 
 EXPOSE 9050
 

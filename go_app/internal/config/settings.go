@@ -75,21 +75,34 @@ func LoadDefaultConfig() *AppConfig {
 }
 
 func getProjectRootDir() string {
-	// Intentar obtener la raíz desde la ubicación del ejecutable o runtime
+	var startDirs []string
 	if exe, err := os.Executable(); err == nil {
-		dir := filepath.Dir(exe)
-		// Si se ejecuta desde bin/ o go_app/, subimos a la raíz
-		if filepath.Base(dir) == "go_app" || filepath.Base(dir) == "cmd" || filepath.Base(dir) == "camoumacro-gui" {
-			return filepath.Dir(dir)
-		}
-		if _, err := os.Stat(filepath.Join(dir, "python_engine")); err == nil {
-			return dir
+		startDirs = append(startDirs, filepath.Dir(exe))
+	}
+	if cwd, err := os.Getwd(); err == nil {
+		startDirs = append(startDirs, cwd)
+	}
+
+	for _, start := range startDirs {
+		curr := start
+		for i := 0; i < 6; i++ {
+			if _, err := os.Stat(filepath.Join(curr, "python_engine")); err == nil {
+				return curr
+			}
+			if _, err := os.Stat(filepath.Join(curr, "camoumacro.py")); err == nil {
+				return curr
+			}
+			parent := filepath.Dir(curr)
+			if parent == curr || parent == "." || parent == "" {
+				break
+			}
+			curr = parent
 		}
 	}
 
 	// Fallback: directorio de trabajo actual
 	cwd, _ := os.Getwd()
-	if filepath.Base(cwd) == "go_app" {
+	if filepath.Base(cwd) == "go_app" || filepath.Base(cwd) == "bin" {
 		return filepath.Dir(cwd)
 	}
 	return cwd

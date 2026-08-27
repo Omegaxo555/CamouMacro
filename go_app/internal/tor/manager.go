@@ -54,24 +54,68 @@ func (m *Manager) RotatePort() int {
 
 // FindTorExecutable busca el binario de Tor en rutas comunes y en el PATH.
 func FindTorExecutable() string {
-	cwd, _ := os.Getwd()
+	if envTor := os.Getenv("TOR_PATH"); envTor != "" {
+		if _, err := os.Stat(envTor); err == nil {
+			return envTor
+		}
+	}
+	if envTor := os.Getenv("TOR_BINARY"); envTor != "" {
+		if _, err := os.Stat(envTor); err == nil {
+			return envTor
+		}
+	}
+
+	var startDirs []string
+	if exe, err := os.Executable(); err == nil {
+		startDirs = append(startDirs, filepath.Dir(exe))
+	}
+	if cwd, err := os.Getwd(); err == nil {
+		startDirs = append(startDirs, cwd)
+	}
+
 	var candidates []string
 
+	for _, start := range startDirs {
+		curr := start
+		for i := 0; i < 6; i++ {
+			if runtime.GOOS == "windows" {
+				candidates = append(candidates,
+					filepath.Join(curr, "tor", "tor", "tor.exe"),
+					filepath.Join(curr, "tor", "tor.exe"),
+					filepath.Join(curr, "python_engine", "tor", "tor", "tor.exe"),
+					filepath.Join(curr, "bin", "tor", "tor.exe"),
+				)
+			} else {
+				candidates = append(candidates,
+					filepath.Join(curr, "tor", "tor", "tor"),
+					filepath.Join(curr, "tor", "tor"),
+					filepath.Join(curr, "python_engine", "tor", "tor", "tor"),
+					filepath.Join(curr, "bin", "tor", "tor"),
+				)
+			}
+			parent := filepath.Dir(curr)
+			if parent == curr || parent == "." || parent == "" {
+				break
+			}
+			curr = parent
+		}
+	}
+
 	if runtime.GOOS == "windows" {
+		userProfile := os.Getenv("USERPROFILE")
+		if userProfile != "" {
+			candidates = append(candidates,
+				filepath.Join(userProfile, "AppData", "Local", "Tor Browser", "Browser", "TorBrowser", "Tor", "tor.exe"),
+				filepath.Join(userProfile, "Desktop", "Tor Browser", "Browser", "TorBrowser", "Tor", "tor.exe"),
+			)
+		}
 		candidates = append(candidates,
-			filepath.Join(cwd, "tor", "tor", "tor.exe"),
-			filepath.Join(cwd, "python_engine", "tor", "tor", "tor.exe"),
-			filepath.Join(filepath.Dir(cwd), "python_engine", "tor", "tor", "tor.exe"),
-			filepath.Join(filepath.Dir(cwd), "tor", "tor", "tor.exe"),
 			"tor.exe",
-			`C:\Users\paulo\AppData\Local\Tor Browser\Browser\TorBrowser\Tor\tor.exe`,
 			`C:\Program Files\Tor Browser\Browser\TorBrowser\Tor\tor.exe`,
 			`C:\Program Files (x86)\Tor Browser\Browser\TorBrowser\Tor\tor.exe`,
 		)
 	} else {
 		candidates = append(candidates,
-			filepath.Join(cwd, "tor", "tor", "tor"),
-			filepath.Join(cwd, "python_engine", "tor", "tor", "tor"),
 			"tor",
 			"/usr/bin/tor",
 			"/usr/local/bin/tor",

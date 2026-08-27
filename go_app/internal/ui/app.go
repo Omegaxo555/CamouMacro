@@ -57,6 +57,11 @@ func NewMainUI(cfg *config.AppConfig) *MainUI {
 		cfg:     cfg,
 	}
 
+	// Inicializar logEntry antes de los callbacks para evitar panic nil-pointer
+	ui.logEntry = widget.NewMultiLineEntry()
+	ui.logEntry.Wrapping = fyne.TextWrapWord
+	ui.logEntry.TextStyle = fyne.TextStyle{Monospace: true}
+
 	ui.orch = orchestrator.NewOrchestrator(cfg, ui.AppendLog, ui.UpdateStatus)
 	ui.buildUI()
 
@@ -86,10 +91,11 @@ func (ui *MainUI) AppendLog(line string) {
 		ui.logMessages = ui.logMessages[len(ui.logMessages)-1000:]
 	}
 
-	fullText := strings.Join(ui.logMessages, "\n")
-	ui.window.Canvas().Refresh(ui.logEntry)
-	ui.logEntry.SetText(fullText)
-	ui.logEntry.CursorRow = len(ui.logMessages)
+	if ui.logEntry != nil {
+		fullText := strings.Join(ui.logMessages, "\n")
+		ui.logEntry.SetText(fullText)
+		ui.logEntry.CursorRow = len(ui.logMessages)
+	}
 }
 
 // UpdateStatus actualiza el badge de estado visual.
@@ -101,24 +107,40 @@ func (ui *MainUI) UpdateStatus(status orchestrator.StatusType) {
 	switch status {
 	case orchestrator.StatusRunning:
 		ui.statusBadge.SetText("● EN EJECUCIÓN")
-		ui.startBtn.Disable()
-		ui.stopBtn.Enable()
+		if ui.startBtn != nil {
+			ui.startBtn.Disable()
+		}
+		if ui.stopBtn != nil {
+			ui.stopBtn.Enable()
+		}
 	case orchestrator.StatusStarting:
 		ui.statusBadge.SetText("◐ INICIANDO")
-		ui.startBtn.Disable()
-		ui.stopBtn.Enable()
+		if ui.startBtn != nil {
+			ui.startBtn.Disable()
+		}
+		if ui.stopBtn != nil {
+			ui.stopBtn.Enable()
+		}
 	case orchestrator.StatusRotating:
 		ui.statusBadge.SetText("🔄 ROTANDO SALIDA")
 	case orchestrator.StatusStopping:
 		ui.statusBadge.SetText("◑ DETENIENDO")
 	case orchestrator.StatusIdle:
 		ui.statusBadge.SetText("○ DETENIDO (IDLE)")
-		ui.startBtn.Enable()
-		ui.stopBtn.Disable()
+		if ui.startBtn != nil {
+			ui.startBtn.Enable()
+		}
+		if ui.stopBtn != nil {
+			ui.stopBtn.Disable()
+		}
 	case orchestrator.StatusError:
 		ui.statusBadge.SetText("✖ ERROR")
-		ui.startBtn.Enable()
-		ui.stopBtn.Disable()
+		if ui.startBtn != nil {
+			ui.startBtn.Enable()
+		}
+		if ui.stopBtn != nil {
+			ui.stopBtn.Disable()
+		}
 	}
 }
 
@@ -224,10 +246,6 @@ func (ui *MainUI) buildDashboardTab() fyne.CanvasObject {
 }
 
 func (ui *MainUI) buildLogsTab() fyne.CanvasObject {
-	ui.logEntry = widget.NewMultiLineEntry()
-	ui.logEntry.Wrapping = fyne.TextWrapWord
-	ui.logEntry.TextStyle = fyne.TextStyle{Monospace: true}
-
 	clearBtn := widget.NewButtonWithIcon("Limpiar Consola", theme.DeleteIcon(), func() {
 		ui.logMu.Lock()
 		ui.logMessages = nil
