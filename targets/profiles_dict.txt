@@ -1,5 +1,8 @@
 {
-  "Zol": 41,
-  "Anna": 46,
-  "Kathe": 34
+  "target_gender": "men",
+  "account_gender": "women",
+  "targets": {
+    "Enrique": 40
+  }
 }
+

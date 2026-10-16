@@ -17,6 +17,8 @@ type AppConfig struct {
 	Headless         bool
 	SpeedFactor      float64
 	SelectedAlgo     string
+	TargetGender     string
+	AccountGender    string
 	WindowWidth      int
 	WindowHeight     int
 }
@@ -61,6 +63,16 @@ func LoadDefaultConfig() *AppConfig {
 		algo = envAlgo
 	}
 
+	targetGender := "men"
+	if envTarget := os.Getenv("TARGET_GENDER"); envTarget != "" {
+		targetGender = envTarget
+	}
+
+	accountGender := "auto"
+	if envAccount := os.Getenv("ACCOUNT_GENDER"); envAccount != "" {
+		accountGender = envAccount
+	}
+
 	return &AppConfig{
 		PythonExecutable: pythonPath,
 		PythonEngineDir:  engineDir,
@@ -69,6 +81,8 @@ func LoadDefaultConfig() *AppConfig {
 		Headless:         headless,
 		SpeedFactor:      speed,
 		SelectedAlgo:     algo,
+		TargetGender:     targetGender,
+		AccountGender:    accountGender,
 		WindowWidth:      560,
 		WindowHeight:     420,
 	}

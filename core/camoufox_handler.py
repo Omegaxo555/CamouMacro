@@ -158,11 +158,20 @@ class CamoufoxHandler:
         try:
             user_data_path = self._prepare_profile()
 
-            tor_available = self.is_tor_available()
+            # Extraer puerto del proxy configurado para verificar disponibilidad
+            _proxy_port = 9050
+            if self.proxy_server:
+                try:
+                    _proxy_port = int(self.proxy_server.rstrip("/").rsplit(":", 1)[-1])
+                except (ValueError, IndexError):
+                    _proxy_port = 9050
+
+            tor_available = self.is_tor_available(port=_proxy_port)
             if tor_available:
-                logging.info("Inicializando motor Camoufox sobre Tor...")
+                logging.info(f"Inicializando motor Camoufox sobre Tor (127.0.0.1:{_proxy_port})...")
             else:
-                logging.warning("Tor no está disponible en 127.0.0.1:9050. Iniciando Camoufox sin proxy.")
+                logging.warning(f"Tor no está disponible en 127.0.0.1:{_proxy_port}. Iniciando Camoufox sin proxy.")
+
 
             camoufox_kwargs = {
                 "headless": self.headless,

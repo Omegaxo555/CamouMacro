@@ -1,0 +1,10 @@
+{
+  "target_gender": "men",
+  "account_gender": "women",
+  "targets": {
+    "David": 38,
+    "Lucas": 34,
+    "Alex": 42,
+    "James": 46
+  }
+}

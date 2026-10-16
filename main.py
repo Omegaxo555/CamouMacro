@@ -14,6 +14,7 @@ from core.camoufox_handler import CamoufoxHandler
 from core.terminal_ui import TerminalUI
 from modules.allfeellove_auto import run_allfeellove_auto
 from modules.form_automator import FormAutomator
+from modules.InfoGeneration.peopleInfo_generator import PeopleInfoGenerator
 
 TOR_PROCESS = None
 
@@ -138,17 +139,21 @@ def stop_tor_background() -> None:
 
 
 def run_form_demo(driver: CamoufoxHandler) -> None:
-    """Demostración del módulo FormAutomator."""
+    """Demostración del módulo FormAutomator con generación adaptable de identidad."""
     print(f"{TerminalUI.ANSI['fg_cyan']}[demo]{TerminalUI.ANSI['reset']} Ejecutando formulario de prueba...")
     if not driver.navigate("https://httpbin.org/forms/post"):
         print(f"{TerminalUI.ANSI['fg_red']}[-] No se pudo abrir la URL de prueba.{TerminalUI.ANSI['reset']}")
         return
 
+    gender = os.getenv("ACCOUNT_GENDER", "random")
+    profile = PeopleInfoGenerator.generate_profile(gender=gender)
+    print(f"{TerminalUI.ANSI['fg_cyan']}[demo]{TerminalUI.ANSI['reset']} Identidad generada: {profile['name']} ({profile['gender']})")
+
     automator = FormAutomator(driver.page)
-    automator.human_type("input[name='custname']", "Alex Ruiz")
-    automator.human_type("input[name='custemail']", "alex@example.com")
-    automator.human_type("textarea[name='comments']", "Prueba automatizada desde CamouMacro")
-    print(f"{TerminalUI.ANSI['fg_green']}[ok]{TerminalUI.ANSI['reset']} Formulario completado.")
+    automator.human_type("input[name='custname']", profile["name"])
+    automator.human_type("input[name='custemail']", profile["email"])
+    automator.human_type("textarea[name='comments']", f"Prueba automatizada desde CamouMacro ({profile['gender']})")
+    print(f"{TerminalUI.ANSI['fg_green']}[ok]{TerminalUI.ANSI['reset']} Formulario completado para {profile['name']}.")
 
 
 def run_exit() -> None:

@@ -1,17 +1,20 @@
+"""Generador de perfiles de usuario adaptables para masculino y femenino."""
+
 import random
-from datetime import datetime, timedelta
+from datetime import datetime
 
 
 class PeopleInfoGenerator:
-    """Genera perfiles realistas para formularios de dating o registro."""
+    """Genera perfiles realistas para formularios de dating o registro, adaptables por género."""
 
     MALE_NAMES = [
         "Noah", "Liam", "Lucas", "Mason", "Elijah", "James", "Henry", "Leo",
         "Theo", "Oliver", "Ethan", "Mateo", "Daniel", "Sebastian", "Jack",
         "Aiden", "Samuel", "Wyatt", "Julian", "Benjamin", "Hudson", "Asher",
         "Nathan", "Ezra", "Adrian", "Giovanni", "Oscar", "Marco", "Dylan",
-        "Kai", "Javier", "Miguel", "Mateo", "Victor", "Diego", "Rafael", "Levi",
-        "Santiago", "Nicolas", "Emiliano", "Alejandro", "Martin", "Felix", "Ian"
+        "Kai", "Javier", "Miguel", "Victor", "Diego", "Rafael", "Levi",
+        "Santiago", "Nicolas", "Emiliano", "Alejandro", "Martin", "Felix", "Ian",
+        "Carlos", "Gabriel", "David", "Christian", "Alex", "Marcus", "Thomas"
     ]
 
     FEMALE_NAMES = [
@@ -21,7 +24,7 @@ class PeopleInfoGenerator:
         "Ruby", "Naomi", "Leah", "Savannah", "Penelope", "Alice", "Elena", "Bella",
         "Mila", "Ivy", "Ariana", "Jade", "Selena", "Rosa", "Cora", "Diana", "Freya",
         "Camila", "Valentina", "Natalia", "Lucía", "Marina", "Alina", "Clara", "Maya",
-        "Isla", "Sofia", "Cecilia", "Anita"
+        "Isla", "Sofia", "Cecilia", "Anita", "Carmen", "Julia", "Eva", "Laura"
     ]
 
     DOMAINS = [
@@ -75,7 +78,21 @@ class PeopleInfoGenerator:
         )
 
     @classmethod
-    def generate_name(cls) -> str:
+    def normalize_gender(cls, gender: str | None, default: str = "male") -> str:
+        """Normaliza el género a 'male' o 'female'."""
+        if not gender:
+            return default
+        g = str(gender).strip().lower()
+        if g in ("female", "women", "woman", "f", "mujer", "mujeres", "femenina", "femenino"):
+            return "female"
+        if g in ("male", "men", "man", "m", "hombre", "hombres", "masculino"):
+            return "male"
+        if g == "random":
+            return random.choice(["male", "female"])
+        return default
+
+    @classmethod
+    def generate_male_name(cls) -> str:
         return random.choice(cls.MALE_NAMES)
 
     @classmethod
@@ -83,8 +100,18 @@ class PeopleInfoGenerator:
         return random.choice(cls.FEMALE_NAMES)
 
     @classmethod
-    def generate_email(cls, name: str | None = None, domain: str | None = None) -> str:
-        selected_name = name or cls.generate_name()
+    def generate_name(cls, gender: str = "random") -> str:
+        """Genera un nombre según el género especificado ('male', 'female', 'random')."""
+        norm = cls.normalize_gender(gender, default="random")
+        if norm == "female":
+            return cls.generate_female_name()
+        if norm == "male":
+            return cls.generate_male_name()
+        return random.choice([cls.generate_male_name(), cls.generate_female_name()])
+
+    @classmethod
+    def generate_email(cls, name: str | None = None, domain: str | None = None, gender: str = "male") -> str:
+        selected_name = name or cls.generate_name(gender=gender)
         normalized = cls._normalize_name(selected_name)
         suffix = random.randint(10, 999)
         selected_domain = domain or random.choice(cls.DOMAINS)
@@ -100,34 +127,60 @@ class PeopleInfoGenerator:
         return f"{prefix}{number}!"
 
     @classmethod
-    def generate_profile(cls, name: str | None = None, domain: str | None = None, min_age: int = 25, max_age: int = 70) -> dict:
-        selected_name = name or cls.generate_name()
+    def generate_profile(
+        cls,
+        name: str | None = None,
+        domain: str | None = None,
+        min_age: int = 25,
+        max_age: int = 70,
+        gender: str = "male",
+        looking_for: str | None = None,
+    ) -> dict:
+        """Genera un perfil completo y adaptable para hombre o mujer.
+
+        Args:
+            name: Nombre opcional personalizado. Si no se indica, se genera según el género.
+            domain: Dominio de email opcional.
+            min_age: Edad mínima.
+            max_age: Edad máxima.
+            gender: 'male', 'female', 'men', 'women' o 'random'.
+            looking_for: 'female', 'male', 'women', 'men' o None (se auto-asigna el opuesto).
+        """
+        norm_gender = cls.normalize_gender(gender, default="male")
+
+        if looking_for:
+            norm_looking_for = cls.normalize_gender(looking_for, default="female" if norm_gender == "male" else "male")
+        else:
+            norm_looking_for = "female" if norm_gender == "male" else "male"
+
+        selected_name = name or cls.generate_name(gender=norm_gender)
+
         return {
             "name": selected_name,
-            "email": cls.generate_email(selected_name, domain),
+            "email": cls.generate_email(selected_name, domain, gender=norm_gender),
             "birthdate": cls.generate_birthdate(min_age=min_age, max_age=max_age),
             "password": cls.generate_password(),
-            "gender": "male",
-            "looking_for": "female",
+            "gender": norm_gender,
+            "looking_for": norm_looking_for,
             "terms_accepted": True,
         }
 
     @classmethod
-    def generate_profiles(cls, count: int = 10) -> list[dict]:
-        return [cls.generate_profile() for _ in range(count)]
+    def generate_profiles(cls, count: int = 10, gender: str = "male", looking_for: str | None = None) -> list[dict]:
+        return [cls.generate_profile(gender=gender, looking_for=looking_for) for _ in range(count)]
 
     @classmethod
-    def build_allfeellove_payload(cls, count: int = 1) -> list[dict]:
+    def build_allfeellove_payload(cls, count: int = 1, gender: str = "male", looking_for: str | None = None) -> list[dict]:
         payload = []
         for _ in range(count):
-            item = cls.generate_profile()
+            item = cls.generate_profile(gender=gender, looking_for=looking_for)
             payload.append({
                 "name": item["name"],
                 "email": item["email"],
                 "password": item["password"],
                 "birthdate": item["birthdate"],
-                "gender": "male",
-                "looking_for": "female",
+                "gender": item["gender"],
+                "looking_for": item["looking_for"],
                 "terms_accepted": True,
             })
         return payload
@@ -135,8 +188,5 @@ class PeopleInfoGenerator:
 
 if __name__ == "__main__":
     generator = PeopleInfoGenerator()
-    print(generator.generate_profile())
-    print(generator.build_allfeellove_payload(3))
-
-
-
+    print("Perfil masculino:", generator.generate_profile(gender="male"))
+    print("Perfil femenino:", generator.generate_profile(gender="female"))

@@ -203,6 +203,8 @@ func (o *Orchestrator) runPythonWorker(ctx context.Context, torPort int) error {
 		fmt.Sprintf("TOR_PORT=%d", torPort),
 		fmt.Sprintf("SPEED_FACTOR=%.2f", o.cfg.SpeedFactor),
 		fmt.Sprintf("HEADLESS=%t", o.cfg.Headless),
+		fmt.Sprintf("TARGET_GENDER=%s", o.cfg.TargetGender),
+		fmt.Sprintf("ACCOUNT_GENDER=%s", o.cfg.AccountGender),
 	)
 
 	stdoutPipe, err := cmd.StdoutPipe()

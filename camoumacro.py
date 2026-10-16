@@ -169,6 +169,8 @@ class CamouMacroGUI(tk.Tk):
         self.v_auto_port  = tk.BooleanVar(value=True)
         self.v_headless   = tk.BooleanVar(value=False)
         self.v_algo       = tk.StringVar(value="allfeellove_auto")
+        self.v_target_gender = tk.StringVar(value="women")
+        self.v_account_gender = tk.StringVar(value="auto")
 
         # ── Estado interno ──────────────────────────────────────
         self.instances: list[AlgoInstance] = []
@@ -275,6 +277,26 @@ class CamouMacroGUI(tk.Tk):
         algo_combo.grid(row=r, column=1, sticky="e", pady=3, padx=(8, 0))
         r += 1
 
+        # Target Gender selector
+        tk.Label(form, text="Género Objetivo:", bg=COLORS["surface"], fg=COLORS["text_muted"],
+                 font=("Segoe UI", 8), anchor="w").grid(row=r, column=0, sticky="w", pady=3)
+        target_combo = ttk.Combobox(form, textvariable=self.v_target_gender,
+                                    values=["women", "men"],
+                                    state="readonly", width=13,
+                                    font=("Segoe UI", 9))
+        target_combo.grid(row=r, column=1, sticky="e", pady=3, padx=(8, 0))
+        r += 1
+
+        # Account Gender selector
+        tk.Label(form, text="Género Cuenta:", bg=COLORS["surface"], fg=COLORS["text_muted"],
+                 font=("Segoe UI", 8), anchor="w").grid(row=r, column=0, sticky="w", pady=3)
+        account_combo = ttk.Combobox(form, textvariable=self.v_account_gender,
+                                     values=["auto", "men", "women"],
+                                     state="readonly", width=13,
+                                     font=("Segoe UI", 9))
+        account_combo.grid(row=r, column=1, sticky="e", pady=3, padx=(8, 0))
+        r += 1
+
         # Speed presets
         tk.Label(form, text="Presets de velocidad:",
                  bg=COLORS["surface"], fg=COLORS["text_dim"],
@@ -369,11 +391,13 @@ class CamouMacroGUI(tk.Tk):
     # ─── Config I/O ────────────────────────────────────────────
 
     def _save_config(self):
-        """Persiste los valores en config/settings.py."""
+        """Persiste los valores en config/settings.py y python_engine/config/settings.py."""
         try:
             content = f'''"""Configuración global de automatización y tiempos de ejecución."""
 
+import json
 import os
+import re
 from pathlib import Path
 
 
@@ -382,6 +406,9 @@ class AutomationConfig:
 
     SPEED_FACTOR: float = float(os.environ.get("SPEED_FACTOR", "{self.v_speed.get()}"))
     TARGETS_FILE: str = os.environ.get("TARGETS_FILE", "targets/profiles_dict.txt")
+    TARGET_GENDER: str = os.environ.get("TARGET_GENDER", "{self.v_target_gender.get()}")
+    ACCOUNT_GENDER: str = os.environ.get("ACCOUNT_GENDER", "{self.v_account_gender.get()}")
+
     MAX_SCAN_PAGES: int = int(os.environ.get("MAX_SCAN_PAGES", "{self.v_max_pages.get()}"))
     MESSAGE_COOLDOWN_SECONDS: float = float(os.environ.get("MESSAGE_COOLDOWN_SECONDS", "{self.v_cooldown.get()}"))
     STICKER_COUNT: int = int(os.environ.get("STICKER_COUNT", "{self.v_stickers.get()}"))
@@ -400,9 +427,108 @@ class AutomationConfig:
 
     @classmethod
     def get_targets_path(cls) -> Path:
-        return Path(__file__).resolve().parent.parent / cls.TARGETS_FILE
+        candidate = Path(cls.TARGETS_FILE)
+        if candidate.is_absolute() and candidate.is_file():
+            return candidate
+
+        root = Path(__file__).resolve().parent.parent
+        options = [
+            root / cls.TARGETS_FILE,
+            Path.cwd() / cls.TARGETS_FILE,
+            root / "targets" / "profiles_dict.txt",
+            root / "python_engine" / "targets" / "profiles_dict.txt",
+            Path.cwd() / "targets" / "profiles_dict.txt",
+            Path.cwd() / "python_engine" / "targets" / "profiles_dict.txt",
+        ]
+        for opt in options:
+            if opt.is_file():
+                return opt
+        return root / cls.TARGETS_FILE
+
+    @classmethod
+    def normalize_gender(cls, value: str | None, default: str = "women") -> str:
+        if not value:
+            return default
+        val = str(value).strip().lower()
+        if val in ("men", "man", "male", "m", "hombre", "hombres", "masculino", "chico"):
+            return "men"
+        if val in ("women", "woman", "female", "f", "mujer", "mujeres", "femenina", "femenino", "chica"):
+            return "women"
+        return default
+
+    @classmethod
+    def load_profiles_config(cls, custom_path: str | Path | None = None) -> tuple[str, str, dict[str, int]]:
+        path = Path(custom_path) if custom_path else cls.get_targets_path()
+        file_target_gender = None
+        file_account_gender = None
+        targets: dict[str, int] = {{}}
+
+        if path.is_file():
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+                if isinstance(data, dict):
+                    for k, v in data.items():
+                        k_lower = k.lower().strip()
+                        if k_lower in ("target_gender", "targetgender", "target"):
+                            file_target_gender = cls.normalize_gender(v)
+                        elif k_lower in ("account_gender", "accountgender", "my_gender", "user_gender", "usergender"):
+                            file_account_gender = cls.normalize_gender(v)
+                        elif k_lower == "gender":
+                            file_target_gender = cls.normalize_gender(v)
+
+                    raw_targets = data.get("targets") or data.get("profiles")
+                    if isinstance(raw_targets, dict):
+                        for name, age in raw_targets.items():
+                            try:
+                                targets[str(name).strip()] = int(age)
+                            except (ValueError, TypeError):
+                                pass
+                    elif isinstance(raw_targets, list):
+                        for item in raw_targets:
+                            if isinstance(item, dict) and "name" in item:
+                                try:
+                                    targets[str(item["name"]).strip()] = int(item.get("age", 0))
+                                except (ValueError, TypeError):
+                                    pass
+                    else:
+                        meta_keys = {{
+                            "target_gender", "targetgender", "account_gender",
+                            "accountgender", "my_gender", "user_gender", "gender", "target"
+                        }}
+                        for k, v in data.items():
+                            if k.lower().strip() not in meta_keys:
+                                try:
+                                    targets[str(k).strip()] = int(v)
+                                except (ValueError, TypeError):
+                                    pass
+            except Exception:
+                pass
+
+        if not targets:
+            targets = {{"Zol": 41, "Anna": 46, "Kathe": 34}}
+
+        env_target = os.environ.get("TARGET_GENDER")
+        if env_target:
+            target_gender = cls.normalize_gender(env_target)
+        elif file_target_gender:
+            target_gender = file_target_gender
+        else:
+            target_gender = "women"
+
+        env_account = os.environ.get("ACCOUNT_GENDER")
+        if env_account and env_account.lower() != "auto":
+            account_gender = cls.normalize_gender(env_account)
+        elif file_account_gender and file_account_gender.lower() != "auto":
+            account_gender = file_account_gender
+        else:
+            account_gender = "men" if target_gender == "women" else "women"
+
+        return target_gender, account_gender, targets
 '''
             SETTINGS_FILE.write_text(content, encoding="utf-8")
+            engine_settings = ROOT_DIR / "python_engine" / "config" / "settings.py"
+            if engine_settings.parent.is_dir():
+                engine_settings.write_text(content, encoding="utf-8")
             self._flash_status("✓ Configuración guardada en config/settings.py", COLORS["success"])
         except Exception as exc:
             messagebox.showerror("Error", f"No se pudo guardar la configuración:\n{exc}")
@@ -427,6 +553,8 @@ class AutomationConfig:
             self.v_type_min.set(extract("TYPING_MIN_DELAY_MS", "15"))
             self.v_type_max.set(extract("TYPING_MAX_DELAY_MS", "45"))
             self.v_timeout.set(extract("DEFAULT_TIMEOUT_MS", "10000"))
+            self.v_target_gender.set(extract("TARGET_GENDER", "women"))
+            self.v_account_gender.set(extract("ACCOUNT_GENDER", "auto"))
         except Exception:
             pass
 
@@ -475,6 +603,8 @@ class AutomationConfig:
         env["TOR_PORT"]                  = str(port)
         env["HEADLESS"]                  = "true" if self.v_headless.get() else "false"
         env["ALGO"]                      = self.v_algo.get()
+        env["TARGET_GENDER"]             = self.v_target_gender.get()
+        env["ACCOUNT_GENDER"]            = self.v_account_gender.get()
         return env
 
     def _launch_instance(self):

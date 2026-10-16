@@ -1,6 +1,8 @@
 """Runner CLI para el motor de automatización Camoufox.
 
 Permite invocar cualquier algoritmo con parámetros explícitos pasados por el orquestador en Go.
+Este archivo es el único componente dentro de python_engine/; todos los módulos reutilizables
+(core/, modules/, config/, targets/, templates/) residen en el directorio raíz del proyecto.
 """
 
 import argparse
@@ -9,27 +11,41 @@ import sys
 import traceback
 from pathlib import Path
 
-# Añadir directorio actual al PATH de Python
-CURRENT_DIR = Path(__file__).resolve().parent
-sys.path.insert(0, str(CURRENT_DIR))
+# ─────────────────────────────────────────────────────────────────────────────
+# Resolución de rutas: este script vive en <root>/python_engine/runner.py
+# Los módulos compartidos están en <root>/ (directorio padre).
+# ─────────────────────────────────────────────────────────────────────────────
+RUNNER_DIR = Path(__file__).resolve().parent   # <root>/python_engine/
+PROJECT_ROOT = RUNNER_DIR.parent               # <root>/
+
+# Insertar la raíz del proyecto al frente del sys.path para que
+# "from core.xxx import ...", "from modules.xxx import ...", etc. funcionen
+# sin duplicar ningún archivo dentro de python_engine/.
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from core.camoufox_handler import CamoufoxHandler
 from modules.allfeellove_auto import run_allfeellove_auto
 from modules.form_automator import FormAutomator
+from modules.InfoGeneration.peopleInfo_generator import PeopleInfoGenerator
 
 
 def run_form_demo(driver: CamoufoxHandler) -> None:
-    """Demostración del módulo FormAutomator."""
+    """Demostración del módulo FormAutomator con generación adaptable."""
     print("[runner] Ejecutando formulario de prueba...")
     if not driver.navigate("https://httpbin.org/forms/post"):
         print("[runner] [ERROR] No se pudo abrir la URL de prueba.")
         sys.exit(1)
 
+    gender = os.getenv("ACCOUNT_GENDER", "random")
+    profile = PeopleInfoGenerator.generate_profile(gender=gender)
+    print(f"[runner] Identidad generada: {profile['name']} ({profile['gender']})")
+
     automator = FormAutomator(driver.page)
-    automator.human_type("input[name='custname']", "Alex Ruiz")
-    automator.human_type("input[name='custemail']", "alex@example.com")
-    automator.human_type("textarea[name='comments']", "Prueba automatizada desde CamouMacro (Go+Python Hybrid)")
-    print("[runner] [OK] Formulario completado con éxito.")
+    automator.human_type("input[name='custname']", profile["name"])
+    automator.human_type("input[name='custemail']", profile["email"])
+    automator.human_type("textarea[name='comments']", f"Prueba automatizada desde CamouMacro ({profile['gender']})")
+    print(f"[runner] [OK] Formulario completado con éxito para {profile['name']}.")
 
 
 ALGORITHMS = {
@@ -47,6 +63,8 @@ def parse_args():
     parser.add_argument("--template", type=str, default="templates/perfil_base.tar.gz", help="Plantilla de perfil")
     parser.add_argument("--width", type=int, default=560, help="Ancho de ventana")
     parser.add_argument("--height", type=int, default=420, help="Alto de ventana")
+    parser.add_argument("--target-gender", type=str, default=None, choices=["women", "men"], help="Género del objetivo a buscar")
+    parser.add_argument("--account-gender", type=str, default=None, choices=["men", "women", "auto"], help="Género del perfil a crear")
     parser.add_argument("--list-algos", action="store_true", help="Listar algoritmos soportados y salir")
     return parser.parse_args()
 
@@ -67,12 +85,18 @@ def main():
     os.environ["SPEED_FACTOR"] = str(args.speed_factor)
     os.environ["HEADLESS"] = str(args.headless).lower()
     os.environ["TOR_PORT"] = str(args.tor_port)
+    if args.target_gender:
+        os.environ["TARGET_GENDER"] = args.target_gender
+    if args.account_gender:
+        os.environ["ACCOUNT_GENDER"] = args.account_gender
 
-    template_path = CURRENT_DIR / args.template
+    # Resolver la plantilla de perfil relativa a la raíz del proyecto
+    template_path = PROJECT_ROOT / args.template
     template_str = str(template_path) if template_path.is_file() else None
 
+    print(f"[runner] Raíz del proyecto: {PROJECT_ROOT}")
     print(f"[runner] Inicializando Camoufox en Tor proxy socks5://127.0.0.1:{args.tor_port} (Headless: {args.headless})...")
-    
+
     driver = CamoufoxHandler(
         tor_proxy=f"socks5://127.0.0.1:{args.tor_port}",
         profile_template=template_str,

@@ -1,12 +1,19 @@
 .git
 .gitignore
 .venv
+python_engine/.venv
 **/__pycache__
 **/*.pyc
 **/*.pyo
 **/*.pyd
 go_app/bin
+go_app/.git
 .temp
 tmp
 *.tar.gz.tmp
 .DS_Store
+# Archivos solo para desarrollo local
+debug_camoufox.py
+copy.txt
+*.md
+.env.example
