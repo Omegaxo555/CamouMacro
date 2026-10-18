@@ -14,7 +14,14 @@ class PeopleInfoGenerator:
         "Nathan", "Ezra", "Adrian", "Giovanni", "Oscar", "Marco", "Dylan",
         "Kai", "Javier", "Miguel", "Victor", "Diego", "Rafael", "Levi",
         "Santiago", "Nicolas", "Emiliano", "Alejandro", "Martin", "Felix", "Ian",
-        "Carlos", "Gabriel", "David", "Christian", "Alex", "Marcus", "Thomas"
+        "Carlos", "Gabriel", "David", "Christian", "Alex", "Marcus", "Thomas",
+        "Aaron", "Abel", "Abraham", "Adam", "Alan", "Albert", "Amir", "Andrew",
+        "Angel", "Anthony", "Antonio", "Arlo", "Arthur", "Ashton", "Austin", "Axel",
+        "Beau", "Blake", "Brandon", "Brayden", "Brian", "Brody", "Caleb", "Calvin",
+        "Cameron", "Carter", "Charles", "Chase", "Christopher", "Cole", "Colin",
+        "Connor", "Cooper", "Damian", "Darius", "Dominic", "Elias", "Evan", "George",
+        "Graham", "Isaac", "Isaiah", "Jaxon", "Jeremiah", "Enzo", "Francisco", "Hugo",
+        "Ivan", "Jason", "Jose"
     ]
 
     FEMALE_NAMES = [
@@ -24,7 +31,14 @@ class PeopleInfoGenerator:
         "Ruby", "Naomi", "Leah", "Savannah", "Penelope", "Alice", "Elena", "Bella",
         "Mila", "Ivy", "Ariana", "Jade", "Selena", "Rosa", "Cora", "Diana", "Freya",
         "Camila", "Valentina", "Natalia", "Lucía", "Marina", "Alina", "Clara", "Maya",
-        "Isla", "Sofia", "Cecilia", "Anita", "Carmen", "Julia", "Eva", "Laura"
+        "Isla", "Sofia", "Cecilia", "Anita", "Carmen", "Julia", "Eva", "Laura",
+        "Adeline", "Adriana", "Aisha", "Alexandra", "Alexis", "Alyssa", "Amara",
+        "Andrea", "Angela", "Annabelle", "Ashley", "Athena", "Audrey", "Autumn",
+        "Beatrice", "Bianca", "Brooke", "Carolina", "Catalina", "Celeste", "Daisy",
+        "Daniela", "Delilah", "Emilia", "Esme", "Estella", "Gabriella", "Georgia",
+        "Gianna", "Giselle", "Isabel", "Jasmine", "Josephine", "Juliette", "Kiara",
+        "Liliana", "Lola", "Madeline", "Maeve", "Melanie", "Nina", "Noelle", "Phoebe",
+        "Serena", "Sophie", "Talia", "Alana", "Ana", "Ariella", "Blair"
     ]
 
     DOMAINS = [

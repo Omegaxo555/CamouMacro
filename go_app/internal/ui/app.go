@@ -31,6 +31,7 @@ type MainUI struct {
 	algoSelect    *widget.Select
 	headlessCheck *widget.Check
 	loopCheck     *widget.Check
+	allUsersCheck *widget.Check
 	speedSlider   *widget.Slider
 	speedLabel    *widget.Label
 
@@ -192,8 +193,13 @@ func (ui *MainUI) buildDashboardTab() fyne.CanvasObject {
 	})
 	ui.headlessCheck.SetChecked(ui.cfg.Headless)
 
-	ui.loopCheck = widget.NewCheck("Bucle Continuo con Rotación Automática", nil)
+	ui.loopCheck = widget.NewCheck("Repetir al terminar (si no, queda abierto)", nil)
 	ui.loopCheck.SetChecked(true)
+
+	ui.allUsersCheck = widget.NewCheck("Buscar en ALL (incluir inactivos; si no, ONLY ACTIVE)", func(checked bool) {
+		ui.cfg.SearchAllUsers = checked
+	})
+	ui.allUsersCheck.SetChecked(ui.cfg.SearchAllUsers)
 
 	// Slider de Velocidad
 	ui.speedLabel = widget.NewLabel(fmt.Sprintf("Multiplicador de Velocidad: %.2fx", ui.cfg.SpeedFactor))
@@ -229,6 +235,7 @@ func (ui *MainUI) buildDashboardTab() fyne.CanvasObject {
 	formGroup := container.NewVBox(
 		widget.NewLabelWithStyle("Selección de Algoritmo:", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 		ui.algoSelect,
+		ui.allUsersCheck,
 		widget.NewSeparator(),
 		ui.headlessCheck,
 		ui.loopCheck,

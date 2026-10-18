@@ -50,19 +50,20 @@ type logMsg string
 type statusMsg orchestrator.StatusType
 
 type model struct {
-	cfg       *config.AppConfig
-	orch      *orchestrator.Orchestrator
-	status    orchestrator.StatusType
-	logs      []string
-	algos     []string
-	algoIdx   int
-	headless  bool
-	loopMode  bool
-	speed     float64
-	quitting  bool
-	logChan   chan string
-	statChan  chan orchestrator.StatusType
-	p         *tea.Program
+	cfg      *config.AppConfig
+	orch     *orchestrator.Orchestrator
+	status   orchestrator.StatusType
+	logs     []string
+	algos    []string
+	algoIdx  int
+	headless bool
+	loopMode bool
+	allUsers bool
+	speed    float64
+	quitting bool
+	logChan  chan string
+	statChan chan orchestrator.StatusType
+	p        *tea.Program
 }
 
 func initialModel() model {
@@ -90,6 +91,7 @@ func initialModel() model {
 		algoIdx:  0,
 		headless: cfg.Headless,
 		loopMode: true,
+		allUsers: cfg.SearchAllUsers,
 		speed:    cfg.SpeedFactor,
 		logChan:  logCh,
 		statChan: statCh,
@@ -144,6 +146,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.status == orchestrator.StatusIdle || m.status == orchestrator.StatusError {
 				m.cfg.SelectedAlgo = m.algos[m.algoIdx]
 				m.cfg.Headless = m.headless
+				m.cfg.SearchAllUsers = m.allUsers
 				m.cfg.SpeedFactor = m.speed
 				_ = m.orch.Start(m.loopMode)
 			}
@@ -161,6 +164,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "l":
 			m.loopMode = !m.loopMode
+
+		case "a":
+			m.allUsers = !m.allUsers
 
 		case "+", "=":
 			m.speed += 0.1
@@ -211,12 +217,17 @@ func (m model) View() string {
 	// Controles & Settings
 	algoDisplay := fmt.Sprintf("Algoritmo [Tab]: %s", lipgloss.NewStyle().Foreground(accentColor).Bold(true).Render(m.algos[m.algoIdx]))
 	headlessDisplay := fmt.Sprintf("Headless [h]: %s", boolColor(m.headless))
-	loopDisplay := fmt.Sprintf("Auto-Rotación [l]: %s", boolColor(m.loopMode))
+	loopDisplay := fmt.Sprintf("Auto-ciclo [l] (OFF deja navegador abierto): %s", boolColor(m.loopMode))
+	filterMode := "ONLY ACTIVE"
+	if m.allUsers {
+		filterMode = "ALL (incluye inactivos)"
+	}
+	allUsersDisplay := fmt.Sprintf("Filtro [a]: %s", filterMode)
 	speedDisplay := fmt.Sprintf("Velocidad [+/-]: %.1fx", m.speed)
 
 	controls := fmt.Sprintf(
-		"%s   |   %s   |   %s   |   %s\n\nAcciones: [s/Enter] Iniciar  •  [x] Detener  •  [c] Limpiar Logs  •  [q] Salir",
-		algoDisplay, headlessDisplay, loopDisplay, speedDisplay,
+		"%s   |   %s\n%s   |   %s\n%s\n\nAcciones: [s/Enter] Iniciar  •  [x] Detener  •  [c] Limpiar Logs  •  [q] Salir",
+		algoDisplay, headlessDisplay, loopDisplay, speedDisplay, allUsersDisplay,
 	)
 
 	panel := cardStyle.Width(96).Render(controls)

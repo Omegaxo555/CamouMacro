@@ -65,6 +65,7 @@ def parse_args():
     parser.add_argument("--height", type=int, default=420, help="Alto de ventana")
     parser.add_argument("--target-gender", type=str, default=None, choices=["women", "men"], help="Género del objetivo a buscar")
     parser.add_argument("--account-gender", type=str, default=None, choices=["men", "women", "auto"], help="Género del perfil a crear")
+    parser.add_argument("--keep-open", action="store_true", help="Esperar a que el usuario cierre el navegador al terminar")
     parser.add_argument("--list-algos", action="store_true", help="Listar algoritmos soportados y salir")
     return parser.parse_args()
 
@@ -118,8 +119,12 @@ def main():
         traceback.print_exc()
         sys.exit(3)
     finally:
-        print("[runner] Limpiando recursos y cerrando navegador...")
-        driver.close()
+        try:
+            if args.keep_open:
+                driver.wait_until_closed()
+        finally:
+            print("[runner] Limpiando recursos y cerrando navegador...")
+            driver.close()
 
 
 if __name__ == "__main__":

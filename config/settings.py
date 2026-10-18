@@ -25,16 +25,13 @@ class AutomationConfig:
     ACCOUNT_GENDER: str = os.environ.get("ACCOUNT_GENDER", "")
 
     # Límite máximo de páginas a escanear
-    MAX_SCAN_PAGES: int = int(os.environ.get("MAX_SCAN_PAGES", "100"))
+    MAX_SCAN_PAGES: int = int(os.environ.get("MAX_SCAN_PAGES", "200"))
 
     # Cooldown entre envío de mensajes en segundos
-    MESSAGE_COOLDOWN_SECONDS: float = float(os.environ.get("MESSAGE_COOLDOWN_SECONDS", "2.5"))
+    MESSAGE_COOLDOWN_SECONDS: float = float(os.environ.get("MESSAGE_COOLDOWN_SECONDS", "15"))
 
-    # Cantidad de stickers a enviar
-    STICKER_COUNT: int = int(os.environ.get("STICKER_COUNT", "5"))
-
-    # Intervalo entre clics de stickers en milisegundos
-    STICKER_INTERVAL_MS: int = int(os.environ.get("STICKER_INTERVAL_MS", "400"))
+    # Incluir perfiles inactivos en la búsqueda (filtro ALL)
+    SEARCH_ALL_USERS: bool = os.environ.get("SEARCH_ALL_USERS", "false").strip().lower() in ("1", "true", "yes", "on")
 
     # Retardo por caracter al escribir texto humano (en milisegundos)
     TYPING_MIN_DELAY_MS: int = int(os.environ.get("TYPING_MIN_DELAY_MS", "15"))

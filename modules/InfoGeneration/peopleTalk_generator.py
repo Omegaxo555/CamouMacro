@@ -10,6 +10,35 @@ class PeopleTalkGenerator:
     (flirty, casual, premium).
     """
 
+    FOLLOW_UP_QUESTIONS = [
+        "What do you usually like to do after a busy day?",
+        "Do you have a favorite kind of music?",
+        "Are you more into quiet nights or going out?",
+        "What is one place you would like to visit?",
+        "Do you enjoy trying new food?",
+        "What is something that always makes you laugh?",
+        "Are you a morning person or a night owl?",
+        "What kind of movies do you enjoy?",
+        "Do you have a favorite weekend activity?",
+        "What is one small thing that made you smile today?",
+        "Do you prefer coffee or tea?",
+        "What is something new you would like to try?",
+    ]
+    FOLLOW_UP_TRANSITIONS = [
+        "I was wondering,",
+        "Here’s a simple one:",
+        "Out of curiosity,",
+        "Something I’m curious about:",
+        "On a lighter note,",
+        "Let me ask you this:",
+        "To switch things up,",
+        "Here’s another easy question:",
+        "Your turn:",
+        "Before I forget,",
+        "One quick thing:",
+        "Just curious,",
+    ]
+
     TONES_BY_GENDER = {
         "women": {
             "flirty": {
@@ -350,7 +379,12 @@ class PeopleTalkGenerator:
         count = max(1, count)
         opener_pool = random.sample(tone_data["openers"], min(len(tone_data["openers"]), count))
         intro_pool = random.sample(tone_data["introductions"], min(len(tone_data["introductions"]), count))
-        question_pool = random.sample(tone_data["questions"], min(len(tone_data["questions"]), count))
+        available_questions = list(dict.fromkeys(tone_data["questions"] + cls.FOLLOW_UP_QUESTIONS))
+        question_pool = random.sample(available_questions, min(len(available_questions), count))
+        transition_pool = random.sample(
+            cls.FOLLOW_UP_TRANSITIONS,
+            min(len(cls.FOLLOW_UP_TRANSITIONS), max(0, count - 3)),
+        )
 
         messages: list[str] = []
         for idx in range(count):
@@ -359,21 +393,23 @@ class PeopleTalkGenerator:
             hook = random.choice(tone_data["hooks"])
             detail = random.choice(tone_data["personal_details"])
             question = question_pool[idx % len(question_pool)]
-            closer = random.choice(tone_data["closers"])
 
             if idx == 0:
                 body = (
-                    f"{opener} {name}, {intro}. {hook}. {detail}. {question} {closer}"
+                    f"{opener} {name}, {intro}. {hook}. {detail}. {question}"
                     if name else
-                    f"{opener}, {intro}. {hook}. {detail}. {question} {closer}"
+                    f"{opener}, {intro}. {hook}. {detail}. {question}"
                 )
             elif idx == 1:
-                body = f"I noticed {intro.lower()}. {hook}. {detail}. {question} {closer}"
+                body = f"I noticed {intro.lower()}. {question}"
             elif idx == 2:
-                body = f"{hook} {detail}. {question} {closer}"
+                body = f"{hook}. {question}"
             else:
-                body = f"I’d like to keep this going. {detail}. {question} {closer}"
+                transition = transition_pool[(idx - 3) % len(transition_pool)]
+                body = f"{transition} {question}"
 
+            if idx == count - 1:
+                body = f"{body} {random.choice(tone_data['closers'])}"
             messages.append(body.strip())
 
         return messages

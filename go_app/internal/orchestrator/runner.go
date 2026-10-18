@@ -29,17 +29,17 @@ const (
 
 // Orchestrator gestiona el ciclo de vida continuo de Tor y el worker Python.
 type Orchestrator struct {
-	cfg        *config.AppConfig
-	torMgr     *tor.Manager
-	cmd        *exec.Cmd
-	ctx        context.Context
-	cancel     context.CancelFunc
-	mu         sync.Mutex
-	status     StatusType
-	onLog      func(string)
-	onStatus   func(StatusType)
-	runLoop    bool
-	iteration  int
+	cfg       *config.AppConfig
+	torMgr    *tor.Manager
+	cmd       *exec.Cmd
+	ctx       context.Context
+	cancel    context.CancelFunc
+	mu        sync.Mutex
+	status    StatusType
+	onLog     func(string)
+	onStatus  func(StatusType)
+	runLoop   bool
+	iteration int
 }
 
 // NewOrchestrator crea un nuevo orquestador.
@@ -191,6 +191,13 @@ func (o *Orchestrator) runPythonWorker(ctx context.Context, torPort int) error {
 		"--height", strconv.Itoa(o.cfg.WindowHeight),
 	}
 
+	o.mu.Lock()
+	keepBrowserOpen := !o.runLoop
+	o.mu.Unlock()
+	if keepBrowserOpen {
+		args = append(args, "--keep-open")
+	}
+
 	if o.cfg.Headless {
 		args = append(args, "--headless")
 	}
@@ -203,8 +210,10 @@ func (o *Orchestrator) runPythonWorker(ctx context.Context, torPort int) error {
 		fmt.Sprintf("TOR_PORT=%d", torPort),
 		fmt.Sprintf("SPEED_FACTOR=%.2f", o.cfg.SpeedFactor),
 		fmt.Sprintf("HEADLESS=%t", o.cfg.Headless),
+		fmt.Sprintf("SEARCH_ALL_USERS=%t", o.cfg.SearchAllUsers),
 		fmt.Sprintf("TARGET_GENDER=%s", o.cfg.TargetGender),
 		fmt.Sprintf("ACCOUNT_GENDER=%s", o.cfg.AccountGender),
+		"PYTHONUNBUFFERED=1",
 	)
 
 	stdoutPipe, err := cmd.StdoutPipe()

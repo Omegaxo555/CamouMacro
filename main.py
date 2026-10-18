@@ -201,6 +201,7 @@ def run_algorithm_with_debug(driver: CamoufoxHandler, selected: dict) -> bool:
 def main():
     current_port = int(os.getenv("TOR_PORT", "9050"))
     headless_mode = os.getenv("HEADLESS", "false").lower() == "true"
+    auto_cycle = os.getenv("AUTO_CYCLE", "true").strip().lower() in {"1", "true", "yes", "on"}
     driver = build_driver_for_port(current_port, headless=headless_mode)
 
     try:
@@ -229,13 +230,23 @@ def main():
                 restart_reason = "finalización del algoritmo" if algorithm_ok else "error fatal del algoritmo"
 
             restart_count += 1
-            print(
-                f"{TerminalUI.ANSI['fg_yellow']}[lifecycle]{TerminalUI.ANSI['reset']} "
-                f"Reinicio #{restart_count} por {restart_reason}: cerrando Camoufox, "
-                "eliminando perfil temporal y rotando puerto."
-            )
+            if not auto_cycle:
+                driver.wait_until_closed()
+                print(
+                    f"{TerminalUI.ANSI['fg_cyan']}[lifecycle]{TerminalUI.ANSI['reset']} "
+                    "Ciclo único finalizado; cerrando Camoufox y Tor."
+                )
+            else:
+                print(
+                    f"{TerminalUI.ANSI['fg_yellow']}[lifecycle]{TerminalUI.ANSI['reset']} "
+                    f"Reinicio #{restart_count} por {restart_reason}: cerrando Camoufox, "
+                    "eliminando perfil temporal y rotando puerto."
+                )
             driver.close()
             stop_tor_background()
+
+            if not auto_cycle:
+                break
 
             tor_ports = (9050, 9150, 9051, 9052)
             current_index = tor_ports.index(current_port) if current_port in tor_ports else -1

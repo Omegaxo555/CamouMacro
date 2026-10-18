@@ -159,14 +159,16 @@ class CamouMacroGUI(tk.Tk):
         # ── Variables de configuración ──────────────────────────
         self.v_speed      = tk.StringVar(value="1.0")
         self.v_max_pages  = tk.StringVar(value="100")
-        self.v_cooldown   = tk.StringVar(value="2.5")
-        self.v_stickers   = tk.StringVar(value="5")
-        self.v_stk_ms     = tk.StringVar(value="400")
+        self.v_cooldown   = tk.StringVar(value="15")
         self.v_type_min   = tk.StringVar(value="15")
         self.v_type_max   = tk.StringVar(value="45")
         self.v_timeout    = tk.StringVar(value="10000")
         self.v_tor_port   = tk.StringVar(value="9050")
         self.v_auto_port  = tk.BooleanVar(value=True)
+        self.v_auto_cycle = tk.BooleanVar(value=True)
+        self.v_search_all_users = tk.BooleanVar(
+            value=os.getenv("SEARCH_ALL_USERS", "false").strip().lower() in {"1", "true", "yes", "on"}
+        )
         self.v_headless   = tk.BooleanVar(value=False)
         self.v_algo       = tk.StringVar(value="allfeellove_auto")
         self.v_target_gender = tk.StringVar(value="women")
@@ -232,18 +234,23 @@ class CamouMacroGUI(tk.Tk):
         form = tk.Frame(outer, bg=COLORS["surface"], padx=14, pady=10)
         form.pack(fill="both", expand=True)
 
+        tk.Checkbutton(form, text="Filtro ALL (incluye inactivos; desmarcado = ONLY ACTIVE)",
+                       variable=self.v_search_all_users,
+                       bg=COLORS["surface"], fg=COLORS["text"],
+                       activebackground=COLORS["surface"],
+                       selectcolor=COLORS["accent_dim"],
+                       relief="flat").grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 8))
+
         fields = [
             ("SPEED_FACTOR",            "Speed Factor (0.05–3.0):",  self.v_speed),
             ("MAX_SCAN_PAGES",          "Máx. páginas a escanear:",   self.v_max_pages),
             ("MESSAGE_COOLDOWN_SECONDS","Cooldown mensajes (s):",      self.v_cooldown),
-            ("STICKER_COUNT",           "Cantidad de stickers:",       self.v_stickers),
-            ("STICKER_INTERVAL_MS",     "Intervalo stickers (ms):",    self.v_stk_ms),
             ("TYPING_MIN_DELAY_MS",     "Typing min delay (ms):",      self.v_type_min),
             ("TYPING_MAX_DELAY_MS",     "Typing max delay (ms):",      self.v_type_max),
             ("DEFAULT_TIMEOUT_MS",      "Timeout por defecto (ms):",   self.v_timeout),
         ]
 
-        for i, (key, label, var) in enumerate(fields):
+        for i, (key, label, var) in enumerate(fields, start=1):
             tk.Label(form, text=label, bg=COLORS["surface"], fg=COLORS["text_muted"],
                      font=("Segoe UI", 8), anchor="w").grid(row=i, column=0, sticky="w", pady=3)
             e = _entry(form, var, width=14)
@@ -265,6 +272,15 @@ class CamouMacroGUI(tk.Tk):
                        activebackground=COLORS["surface"],
                        selectcolor=COLORS["accent_dim"],
                        relief="flat").grid(row=r, column=1, sticky="e", pady=3)
+        r += 1
+
+        # Auto-cycle
+        tk.Checkbutton(form, text="Repetir al terminar (si no, queda abierto)",
+                       variable=self.v_auto_cycle,
+                       bg=COLORS["surface"], fg=COLORS["text"],
+                       activebackground=COLORS["surface"],
+                       selectcolor=COLORS["accent_dim"],
+                       relief="flat").grid(row=r, column=0, columnspan=2, sticky="w", pady=3)
         r += 1
 
         # Algorithm selector
@@ -411,8 +427,7 @@ class AutomationConfig:
 
     MAX_SCAN_PAGES: int = int(os.environ.get("MAX_SCAN_PAGES", "{self.v_max_pages.get()}"))
     MESSAGE_COOLDOWN_SECONDS: float = float(os.environ.get("MESSAGE_COOLDOWN_SECONDS", "{self.v_cooldown.get()}"))
-    STICKER_COUNT: int = int(os.environ.get("STICKER_COUNT", "{self.v_stickers.get()}"))
-    STICKER_INTERVAL_MS: int = int(os.environ.get("STICKER_INTERVAL_MS", "{self.v_stk_ms.get()}"))
+    SEARCH_ALL_USERS: bool = os.environ.get("SEARCH_ALL_USERS", "false").strip().lower() in ("1", "true", "yes", "on")
     TYPING_MIN_DELAY_MS: int = int(os.environ.get("TYPING_MIN_DELAY_MS", "{self.v_type_min.get()}"))
     TYPING_MAX_DELAY_MS: int = int(os.environ.get("TYPING_MAX_DELAY_MS", "{self.v_type_max.get()}"))
     DEFAULT_TIMEOUT_MS: int = int(os.environ.get("DEFAULT_TIMEOUT_MS", "{self.v_timeout.get()}"))
@@ -547,9 +562,7 @@ class AutomationConfig:
 
             self.v_speed.set(extract("SPEED_FACTOR", "1.0"))
             self.v_max_pages.set(extract("MAX_SCAN_PAGES", "100"))
-            self.v_cooldown.set(extract("MESSAGE_COOLDOWN_SECONDS", "2.5"))
-            self.v_stickers.set(extract("STICKER_COUNT", "5"))
-            self.v_stk_ms.set(extract("STICKER_INTERVAL_MS", "400"))
+            self.v_cooldown.set(extract("MESSAGE_COOLDOWN_SECONDS", "15"))
             self.v_type_min.set(extract("TYPING_MIN_DELAY_MS", "15"))
             self.v_type_max.set(extract("TYPING_MAX_DELAY_MS", "45"))
             self.v_timeout.set(extract("DEFAULT_TIMEOUT_MS", "10000"))
@@ -595,13 +608,13 @@ class AutomationConfig:
         env["SPEED_FACTOR"]              = self.v_speed.get()
         env["MAX_SCAN_PAGES"]            = self.v_max_pages.get()
         env["MESSAGE_COOLDOWN_SECONDS"]  = self.v_cooldown.get()
-        env["STICKER_COUNT"]             = self.v_stickers.get()
-        env["STICKER_INTERVAL_MS"]       = self.v_stk_ms.get()
         env["TYPING_MIN_DELAY_MS"]       = self.v_type_min.get()
         env["TYPING_MAX_DELAY_MS"]       = self.v_type_max.get()
         env["DEFAULT_TIMEOUT_MS"]        = self.v_timeout.get()
         env["TOR_PORT"]                  = str(port)
         env["HEADLESS"]                  = "true" if self.v_headless.get() else "false"
+        env["AUTO_CYCLE"]                = "true" if self.v_auto_cycle.get() else "false"
+        env["SEARCH_ALL_USERS"]          = "true" if self.v_search_all_users.get() else "false"
         env["ALGO"]                      = self.v_algo.get()
         env["TARGET_GENDER"]             = self.v_target_gender.get()
         env["ACCOUNT_GENDER"]            = self.v_account_gender.get()

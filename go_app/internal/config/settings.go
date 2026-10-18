@@ -16,6 +16,7 @@ type AppConfig struct {
 	TorPort          int
 	Headless         bool
 	SpeedFactor      float64
+	SearchAllUsers   bool
 	SelectedAlgo     string
 	TargetGender     string
 	AccountGender    string
@@ -50,6 +51,11 @@ func LoadDefaultConfig() *AppConfig {
 		headless = true
 	}
 
+	searchAllUsers := false
+	if envSearchAll := os.Getenv("SEARCH_ALL_USERS"); envSearchAll == "true" || envSearchAll == "1" || envSearchAll == "yes" || envSearchAll == "on" {
+		searchAllUsers = true
+	}
+
 	if envPython := os.Getenv("PYTHON_PATH"); envPython != "" {
 		pythonPath = envPython
 	}
@@ -80,6 +86,7 @@ func LoadDefaultConfig() *AppConfig {
 		TorPort:          torPort,
 		Headless:         headless,
 		SpeedFactor:      speed,
+		SearchAllUsers:   searchAllUsers,
 		SelectedAlgo:     algo,
 		TargetGender:     targetGender,
 		AccountGender:    accountGender,

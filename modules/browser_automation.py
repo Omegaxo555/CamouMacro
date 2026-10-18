@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import random
+import re
 import time
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
@@ -240,22 +241,11 @@ class BrowserAutomation:
         container = self.page.locator(resolved_container).first
 
         try:
-            # 1. Espera rápida a que el multiselect esté visible
             container.wait_for(state="visible", timeout=op_timeout)
+            if self._multiselect_option_is_selected(container, option_text):
+                self._debug(f"Multiselect '{resolved_container}' ya tiene seleccionado '{option_text}'")
+                return True
 
-            # 2. Comprobación instantánea sin esperas de si ya tiene el valor seleccionado
-            single_locator = container.locator("span.multiselect__single")
-            if single_locator.count() > 0:
-                try:
-                    current_val = (single_locator.first.text_content(timeout=150) or "").strip()
-                    if current_val and (option_text.strip().lower() == current_val.lower() or option_text.strip().lower() in current_val.lower()):
-                        self._debug(f"Multiselect '{resolved_container}' ya tiene seleccionado '{current_val}'")
-                        return True
-                except Exception:
-                    pass
-
-            # 3. Abrir el multiselect haciendo click en el contenedor / tags
-            # En Vue-multiselect el input tiene width 0 cuando está cerrado, por lo que clickeamos .multiselect__tags o .ui-select_icon
             click_target = container.locator(".multiselect__tags, .ui-select_icon").first
             if click_target.count() > 0:
                 click_target.click(timeout=op_timeout)
@@ -277,43 +267,87 @@ class BrowserAutomation:
                     input_locator = fallback_input
 
             if input_locator is not None and input_locator.count() > 0:
-                # Escribir la opción en el input
                 input_locator.fill(option_text, timeout=op_timeout)
-                self.page.wait_for_timeout(60)
+                self.page.wait_for_timeout(100)
 
-                # Intentar click en la opción coincidente dentro del dropdown
-                matching_option = container.locator(
-                    ".multiselect__option, .multiselect__element, [role='option']"
-                ).filter(has_text=option_text).first
+            option_selectors = (
+                ".multiselect__content-wrapper .multiselect__option, "
+                ".multiselect__content-wrapper .multiselect__element, "
+                "[role='option'], .multiselect__option, .multiselect__element"
+            )
+            option_roots = (
+                container.locator(option_selectors),
+                self.page.locator(option_selectors),
+            )
+            matching_option = None
+            expected_text = self._normalize_multiselect_text(option_text)
+            option_deadline = time.monotonic() + op_timeout / 1000
+            while time.monotonic() < option_deadline and matching_option is None:
+                for options in option_roots:
+                    for index in range(options.count()):
+                        option = options.nth(index)
+                        try:
+                            if not option.is_visible():
+                                continue
+                            option_text_content = self._normalize_multiselect_text(
+                                option.inner_text(timeout=500)
+                            )
+                            if option_text_content == expected_text:
+                                matching_option = option
+                                break
+                        except PlaywrightError:
+                            continue
+                    if matching_option is not None:
+                        break
+                if matching_option is None:
+                    self.page.wait_for_timeout(50)
 
-                if matching_option.count() > 0:
-                    try:
-                        matching_option.click(timeout=op_timeout)
-                        self._debug(f"Opción '{option_text}' seleccionada por click en '{resolved_container}'")
-                        return True
-                    except PlaywrightError:
-                        pass
+            if matching_option is None:
+                self._debug(f"No se encontró la opción visible '{option_text}' en '{resolved_container}'")
+                return False
 
-                # Si no se pudo clickear la opción directamente, presionar Enter (selecciona el primer filtrado en vue-multiselect)
+            try:
+                matching_option.click(force=True, timeout=op_timeout)
+                self._debug(f"Click en la opción '{option_text}' de '{resolved_container}'")
+            except PlaywrightError as exc:
+                self._debug(f"Falló el click en la opción '{option_text}': {exc}; intentando Enter.")
+                if input_locator is None or input_locator.count() == 0:
+                    return False
                 input_locator.press("Enter", timeout=op_timeout)
-                self._debug(f"Opción '{option_text}' seleccionada con Enter en '{resolved_container}'")
-                return True
 
-            # 5. Si no hay input para escribir, buscar opción en el dropdown abierto y clickear
-            matching_option = container.locator(
-                ".multiselect__option, .multiselect__element, [role='option']"
-            ).filter(has_text=option_text).first
+            deadline = time.monotonic() + op_timeout / 1000
+            while time.monotonic() < deadline:
+                if self._multiselect_option_is_selected(container, option_text):
+                    self._debug(f"Opción '{option_text}' confirmada en '{resolved_container}'")
+                    return True
+                self.page.wait_for_timeout(50)
 
-            if matching_option.count() > 0:
-                matching_option.click(timeout=op_timeout)
-                self._debug(f"Opción '{option_text}' seleccionada tras desplegar '{resolved_container}'")
-                return True
-
+            self._debug(f"La opción '{option_text}' no quedó seleccionada en '{resolved_container}'")
             return False
 
         except PlaywrightError as exc:
             self._debug(f"Error al seleccionar '{option_text}' en '{resolved_container}': {exc}")
             return False
+
+    @staticmethod
+    def _normalize_multiselect_text(value: str) -> str:
+        return re.sub(r"\s+", " ", value).strip().casefold()
+
+    def _multiselect_option_is_selected(self, container: Locator, option_text: str) -> bool:
+        selected_values = container.locator(
+            "span.multiselect__single, span.multiselect__tag, .multiselect__tag"
+        )
+        expected_text = self._normalize_multiselect_text(option_text)
+        for index in range(selected_values.count()):
+            try:
+                selected_text = self._normalize_multiselect_text(
+                    selected_values.nth(index).inner_text(timeout=500)
+                )
+                if expected_text in selected_text:
+                    return True
+            except PlaywrightError:
+                continue
+        return False
 
     def check_checkbox(self, selector: str, check: bool = True, timeout: Optional[int] = None) -> bool:
         try:

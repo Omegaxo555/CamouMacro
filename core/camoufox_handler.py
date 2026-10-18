@@ -288,6 +288,18 @@ class CamoufoxHandler:
                 self.temp_dir = None
             except Exception as e:
                 logging.error(f"Error al eliminar el directorio temporal {self.temp_dir}: {e}")
+
+    def wait_until_closed(self) -> None:
+        """Mantiene visible el navegador hasta que el usuario cierre su ventana."""
+        page = self.page
+        if page is None or page.is_closed():
+            return
+        if self.headless:
+            logging.warning("El navegador está en modo headless; no se puede esperar un cierre manual.")
+            return
+
+        logging.info("El navegador permanece abierto. Cierra su ventana para continuar.")
+        page.wait_for_event("close")
     
     def verify_ip(self) -> None:
         if not self.page:

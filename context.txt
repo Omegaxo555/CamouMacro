@@ -7,7 +7,7 @@ Ruta local: C:\Users\paulo\CamouMacro
 Fecha de contexto: 2026-08-16
 Sistema operativo: Windows (aunque se ejecuta también en Kali/Linux en algunos entornos)
 
-Este proyecto automatiza flujos web con CamouFox + Playwright, orientado especialmente a la plataforma Allfeellove. Está pensado para crear perfiles, acceder a búsquedas de usuarios, filtrar por edad/país/sexo, localizar perfiles objetivo, abrir perfiles, enviar likes/winks, escribir mensajes personalizados y enviar stickers. También incluye una interfaz de terminal para seleccionar diferentes algoritmos y una gestión de navegador con perfiles persistentes y proxy/Tor opcional.
+Este proyecto automatiza flujos web con CamouFox + Playwright, orientado especialmente a la plataforma Allfeellove. Está pensado para crear perfiles, acceder a búsquedas de usuarios, filtrar por edad/país/sexo, localizar perfiles objetivo, abrir perfiles, enviar likes/winks y escribir mensajes personalizados. También incluye una interfaz de terminal para seleccionar diferentes algoritmos y una gestión de navegador con perfiles persistentes y proxy/Tor opcional.
 
 El proyecto usa:
 - Python 3.12 / 3.14 según el entorno
@@ -63,7 +63,6 @@ La app intenta automatizar la creación de una cuenta y luego el flujo de intera
 12. enviar like/wink,
 13. activar chat si hace falta,
 14. mandar mensajes,
-15. enviar stickers,
 16. iterar según sea necesario.
 
 
@@ -114,7 +113,7 @@ Funciones clave:
 - `_scan_profile_batch_fast()`: compara target_profiles con cards visibles
 - `_find_profile_card_by_name()`: localiza un perfil por nombre/edad
 - `_go_to_next_profile_page()`: avanza la paginación
-- `_interact_with_found_profile()`: abre perfil, da like/wink/mensaje/stickers
+- `_interact_with_found_profile()`: abre perfil, da like/wink y gestiona mensajes
 - `_ensure_chat_mode()`: activa chat si la vista de perfil está en Mail
 
 

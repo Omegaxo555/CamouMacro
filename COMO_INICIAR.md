@@ -192,7 +192,7 @@ python camoumacro.py
 ```
 
 #### Controles disponibles en la ventana:
-- **Configuración de Tiempos**: Permite ajustar `Speed Factor`, `Cooldown entre mensajes`, `Cantidad de stickers`, etc.
+- **Configuración de Tiempos**: Permite ajustar `Speed Factor`, `Cooldown entre mensajes` y otros tiempos.
 - **Selectores de Género**:
   - **Género Objetivo**: Permite elegir entre `women` o `men`.
   - **Género Cuenta**: Permite elegir entre `auto`, `men` o `women`.
@@ -254,7 +254,8 @@ Si compilaste los ejecutables con `setup_standalone.bat` o tienes Go instalado:
 - `[x]`: Detener la ejecución actual.
 - `[Tab]`: Cambiar el algoritmo seleccionado.
 - `[h]`: Alternar modo Headless (oculto / visible).
-- `[l]`: Activar o desactivar el bucle continuo con rotación de identidad.
+- `[l]`: Activar o desactivar el reinicio tras éxito/error; OFF deja abierto el navegador.
+- `[a]`: Activar o desactivar `ALL` (incluye inactivos); OFF conserva `ONLY ACTIVE`.
 - `[+]` / `[-]`: Subir o bajar la velocidad de interacción.
 - `[q]` o `[Ctrl+C]`: Salir del programa.
 
@@ -265,7 +266,7 @@ Si compilaste los ejecutables con `setup_standalone.bat` o tienes Go instalado:
 Para entornos sin interfaz gráfica o tareas programadas de Windows / Cron en Linux:
 
 ```powershell
-.\go_app\bin\camoumacro-cli.exe -algo allfeellove_auto -headless=false -loop=true
+.\go_app\bin\camoumacro-cli.exe -algo allfeellove_auto -headless=false -loop=true -all-users=true
 ```
 
 ---
@@ -292,9 +293,8 @@ TARGETS_FILE=targets/profiles_dict.txt
 
 # Límites del algoritmo
 MAX_SCAN_PAGES=100
-MESSAGE_COOLDOWN_SECONDS=2.5
-STICKER_COUNT=5
-STICKER_INTERVAL_MS=400
+MESSAGE_COOLDOWN_SECONDS=15
+SEARCH_ALL_USERS=false  # true para incluir inactivos (ALL); false conserva ONLY ACTIVE
 ```
 
 ---
@@ -328,3 +328,5 @@ STICKER_INTERVAL_MS=400
 ### 5. ¿Cómo cambiar los mensajes que se envían?
 - Los mensajes están centralizados en `modules/InfoGeneration/peopleTalk_generator.py`.
 - Puedes editar o agregar nuevos tonos (`flirty`, `casual`, `premium`) tanto para hombres como para mujeres en `TONES_BY_GENDER`.
+- El algoritmo prepara una secuencia de hasta 12 mensajes y solo envía el siguiente después de detectar una respuesta entrante. Si no llega en 5 minutos, detiene la secuencia para ese perfil.
+- Las preguntas de seguimiento están en `FOLLOW_UP_QUESTIONS`; el cierre se agrega únicamente al último mensaje.

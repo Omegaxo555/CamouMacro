@@ -19,12 +19,14 @@ func main() {
 	headlessFlag := flag.Bool("headless", cfg.Headless, "Ejecutar en modo headless")
 	speedFlag := flag.Float64("speed", cfg.SpeedFactor, "Factor multiplicador de velocidad")
 	loopFlag := flag.Bool("loop", true, "Ejecutar en bucle continuo con rotación")
+	allUsersFlag := flag.Bool("all-users", cfg.SearchAllUsers, "Incluir perfiles inactivos (filtro ALL)")
 	flag.Parse()
 
 	cfg.SelectedAlgo = *algoFlag
 	cfg.TorPort = *torPortFlag
 	cfg.Headless = *headlessFlag
 	cfg.SpeedFactor = *speedFlag
+	cfg.SearchAllUsers = *allUsersFlag
 
 	fmt.Println("=======================================================")
 	fmt.Println("   CamouMacro CLI Orchestrator (Go + Python Hybrid)   ")

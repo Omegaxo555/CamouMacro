@@ -6,6 +6,7 @@ import random
 import re
 import time
 import traceback
+from collections import Counter
 from pathlib import Path
 
 from config.settings import AutomationConfig
@@ -15,9 +16,11 @@ from modules.browser_automation import BrowserAutomation, HtmlElement
 from modules.InfoGeneration.peopleInfo_generator import PeopleInfoGenerator
 from modules.InfoGeneration.peopleTalk_generator import PeopleTalkGenerator
 
-
 class AllfeelloveAuto:
     """Algoritmo Allfeellove con soporte configurable para usuarios femeninos y masculinos."""
+
+    INCOMING_MESSAGE_SELECTOR = 'div[data-test-id="file:text-message click:resend-message"]'
+    MESSAGE_REPLY_TIMEOUT_SECONDS = 5 * 60
 
     def __init__(
         self,
@@ -62,6 +65,35 @@ class AllfeelloveAuto:
             f"  - Objetivo de búsqueda: {self.target_gender.upper()}\n"
             f"  - Targets cargados ({len(self.target_profiles)}): {list(self.target_profiles.keys())}"
         )
+
+    def _select_checkbox_option(self, testid: str) -> bool:
+        if not self.driver.page or not self.automation:
+            print("[allfeellove_auto] No se puede seleccionar la opción: navegador no inicializado.")
+            return False
+
+        label_selector = HtmlElement.css(f'label[data-testid="{testid}"]')
+        input_locator = self.driver.page.locator(
+            f'label[data-testid="{testid}"] input[type="checkbox"]'
+        )
+        if not self.automation.wait_for_visible(label_selector, timeout=10000):
+            print(f"[allfeellove_auto] No está visible la opción con data-testid='{testid}'.")
+            return False
+        if input_locator.count() != 1:
+            print(f"[allfeellove_auto] Se esperaba un checkbox para '{testid}', encontrado: {input_locator.count()}.")
+            return False
+
+        if not input_locator.is_checked():
+            clicked = self.automation.safe_click(label_selector)
+            if not input_locator.is_checked():
+                print(
+                    f"[allfeellove_auto] El click en '{testid}' "
+                    f"{'falló' if not clicked else 'no marcó el checkbox'}; intentando marcar el input directamente."
+                )
+                input_locator.check(force=True)
+
+        selected = input_locator.is_checked()
+        print(f"[allfeellove_auto] Opción '{testid}' seleccionada: {selected}")
+        return selected
 
     def run(self) -> None:
         try:
@@ -116,13 +148,9 @@ class AllfeelloveAuto:
 
         # Adaptación de selector de búsqueda según target_gender
         if self.target_gender in ("men", "male"):
-            lookingfor_button = HtmlElement.css(
-                "label.checkbox__item.man.man_male, label.checkbox__item.man, label.checkbox__item[class*='man'], label.checkbox__item[class*='male'], [data-test-id*='pref-male']"
-            )
+            lookingfor_button = HtmlElement.css('label[data-testid="option-man"]')
         else:
-            lookingfor_button = HtmlElement.css(
-                "label.checkbox__item.woman.woman_female, label.checkbox__item.woman, label.checkbox__item[class*='woman'], label.checkbox__item[class*='female'], [data-test-id*='pref-female']"
-            )
+            lookingfor_button = HtmlElement.css('label[data-testid="option-woman"]')
 
         name_input = HtmlElement.css('input.input.input_name.name-container__input')
         date_input = HtmlElement.xpath('/html/body/div[1]/div/div/main/div[1]/div/div[2]/div/div/form/div[3]/div[2]/div[1]/input')
@@ -157,9 +185,11 @@ class AllfeelloveAuto:
         result = self.automation.safe_click(gender_button)
         print(f"[allfeellove_auto] Resultado click género: {result}")
 
+        pref_testid = "option-man" if self.target_gender in ("men", "male") else "option-woman"
         print(f"[allfeellove_auto] Seleccionando género objetivo ({self.target_gender}): {lookingfor_button}")
-        result = self.automation.safe_click(lookingfor_button)
-        print(f"[allfeellove_auto] Resultado click búsqueda: {result}")
+        if not self._select_checkbox_option(pref_testid):
+            print("[allfeellove_auto] No se pudo seleccionar la preferencia; se cancela el registro.")
+            return
 
         print(f"[allfeellove_auto] Completando nombre con '{self.profile_dict['name']}'...")
         result = self.automation.human_type(name_input, self.profile_dict['name'])
@@ -195,25 +225,20 @@ class AllfeelloveAuto:
         print('[allfeellove_auto] Esperando por inicio de sesión (onboarding)...')
         self.driver.page.wait_for_load_state("domcontentloaded", timeout=self.driver.timeout)
 
-        # Botón de género preferido en onboarding adaptado
-        # HTML real: <label data-testid="option-man" class="checkbox__item man man_female">
-        pref_testid = "option-man" if self.target_gender in ("men", "male") else "option-woman"
-        pref_class  = "man"        if self.target_gender in ("men", "male") else "woman"
+        # Onboarding usa botones pref-gender, distintos a los checkbox del registro.
+        pref_gender = "male" if self.target_gender in ("men", "male") else "female"
 
         nextLets_button = HtmlElement.css('button[data-test-id="cmp:ui-button click:next Let’s do it!"]')
         nextStep_button = HtmlElement.css('button[data-test-id="cmp:ui-button click:skip skip"]')
-        # Selector real con data-testid del label + fallback por clase CSS del checkbox
         nextStep2_button = HtmlElement.css(
-            f'label[data-testid="{pref_testid}"], '
-            f'label.checkbox__item.{pref_class}, '
-            f'label[data-testid*="{pref_testid}"]'
+            f'button[data-test-id="cmp:ui-button click:pref-gender {pref_gender}"]'
         )
         nextStep3_button = HtmlElement.css('button[data-test-id="cmp:ui-button click:skip skip"]')
         skipToStep4_button = HtmlElement.css('button[data-test-id="cmp:ui-modal click:close"]')
         nextStep4_button = HtmlElement.css('button[data-test-id="cmp:ui-button click:skip skip"]')
         nextStep5_button = HtmlElement.css('button[data-test-id="cmp:ui-button click:next Continue"]')
         claimtokens = HtmlElement.css('[data-test-id="cmp:button-new click:claim-welcome-bonus"]')
-        cancelEmailConfirm = HtmlElement.css('#Close')
+        cancelEmailConfirm = HtmlElement.css('button[data-test-id="cmp:ui-modal click:close"]')
 
         self.automation.wait_for_visible(nextLets_button, timeout=160000)
         self.automation.safe_click(nextLets_button)
@@ -222,8 +247,8 @@ class AllfeelloveAuto:
         self.automation.safe_click(nextStep_button)
 
         self.automation.wait_for_visible(nextStep2_button, timeout=10000)
-        self.automation.safe_click(nextStep2_button)
-        print(f"[allfeellove_auto] Género preferido '{pref_attr}' seleccionado en onboarding.")
+        result = self.automation.safe_click(nextStep2_button)
+        print(f"[allfeellove_auto] Resultado click preferencia onboarding: {result}")
 
         self.automation.wait_for_visible(nextStep3_button, timeout=10000)
         self.automation.safe_click(nextStep3_button)
@@ -253,37 +278,48 @@ class AllfeelloveAuto:
         allpeopleButton = HtmlElement.css('label.chip-root[data-test-id="file:extend-search click:change-online-filter-false all"]')
         filtersButton = HtmlElement.css('[data-test-id="file:extend-search click:show-filter filters"]')
 
-        countrySelect = HtmlElement.css('div.multiselect[role="combobox"][data-test-id="cmp:ui-select search-country select-country"]')
-        countrySearchInput = HtmlElement.css('div.multiselect[role="combobox"][data-test-id="cmp:ui-select search-country select-country"] input.multiselect__input')
+        countrySelect = HtmlElement.css('div.ui-select[data-test-id="cmp:ui-select search-country select-country"]')
+        countrySearchInput = HtmlElement.css('div.ui-select[data-test-id="cmp:ui-select search-country select-country"] input.multiselect__input')
 
-        ageFromSelect = HtmlElement.css('div.multiselect[role="combobox"][data-test-id="cmp:ui-select search-age-from from"]')
-        ageFromInput = HtmlElement.css('div.multiselect[role="combobox"][data-test-id="cmp:ui-select search-age-from from"] input.multiselect__input')
+        ageFromSelect = HtmlElement.css('div.ui-select[data-test-id="cmp:ui-select search-age-from from"]')
+        ageFromInput = HtmlElement.css('div.ui-select[data-test-id="cmp:ui-select search-age-from from"] input.multiselect__input')
 
-        ageToSelect = HtmlElement.css('div.multiselect[role="combobox"][data-test-id="cmp:ui-select search-age-to to"]')
-        ageToInput = HtmlElement.css('div.multiselect[role="combobox"][data-test-id="cmp:ui-select search-age-to to"] input.multiselect__input')
+        ageToSelect = HtmlElement.css('div.ui-select[data-test-id="cmp:ui-select search-age-to to"]')
+        ageToInput = HtmlElement.css('div.ui-select[data-test-id="cmp:ui-select search-age-to to"] input.multiselect__input')
 
-        genderSelect = HtmlElement.css('div.multiselect[role="combobox"][data-test-id="cmp:ui-select search-gender"]')
+        genderSelect = HtmlElement.css('div.ui-select[data-test-id="cmp:ui-select search-gender"]')
         searchPeople = HtmlElement.css('button[data-test-id="cmp:ui-button click:show-people show-people"]')
 
         result = self.automation.safe_click(accountSearch)
         print(f"[allfeellove_auto] Iniciando la búsqueda del perfil, abriendo la sección de búsqueda: {result}")
         self.driver.page.wait_for_load_state("domcontentloaded", timeout=self.driver.timeout)
 
-        result = self.automation.safe_click(allpeopleButton)
-        print(f'[allfeellove_auto] Filtrando todos: {result}')
-        self.driver.page.wait_for_timeout(80)
+        if AutomationConfig.SEARCH_ALL_USERS:
+            result = self.automation.safe_click(allpeopleButton)
+            print(f'[allfeellove_auto] Filtro ALL seleccionado: {result}')
+            if not result:
+                print("[allfeellove_auto] No se pudo seleccionar ALL; se cancela la búsqueda.")
+                return
+            self.driver.page.wait_for_timeout(80)
+        else:
+            print("[allfeellove_auto] Se conserva el filtro ONLY ACTIVE.")
 
         result = self.automation.safe_click(filtersButton)
         print(f'[allfeellove_auto] Abriendo el apartado de filtros: {result}')
-        self.automation.wait_for_visible(HtmlElement.css('.search-filters-form, [data-test-id="cmp:search-filter content"]'), timeout=4000)
+        if not result or not self.automation.wait_for_visible(countrySelect, timeout=10000):
+            print("[allfeellove_auto] El panel de filtros no abrió o el selector de país no apareció; se cancela la búsqueda.")
+            return
 
         result = self.automation.select_multiselect_option(
             countrySelect,
             "United States",
             search_selector=countrySearchInput,
-            timeout=2000,
+            timeout=5000,
         )
         print(f'[allfeellove_auto] País seleccionado: {result}')
+        if not result:
+            print("[allfeellove_auto] No se pudo aplicar el filtro de país; se cancela la búsqueda.")
+            return
 
         # Selección de edad dinámica a partir de los targets cargados
         target_ages = [str(age) for age in self.target_profiles.values() if age]
@@ -296,6 +332,9 @@ class AllfeelloveAuto:
             timeout=5000,
         )
         print(f'[allfeellove_auto] Edad desde seleccionada ({age_filter}): {result}')
+        if not result:
+            print("[allfeellove_auto] No se pudo aplicar la edad mínima; se cancela la búsqueda.")
+            return
 
         result = self.automation.select_multiselect_option(
             ageToSelect,
@@ -304,12 +343,31 @@ class AllfeelloveAuto:
             timeout=5000,
         )
         print(f'[allfeellove_auto] Edad hasta seleccionada ({age_filter}): {result}')
+        if not result:
+            print("[allfeellove_auto] No se pudo aplicar la edad máxima; se cancela la búsqueda.")
+            return
 
-        # Filtro de género en la búsqueda si está disponible
-        search_gender_label = "Men" if self.target_gender in ("men", "male") else "Women"
+        # El multiselect muestra una combinación de género de cuenta y preferencia.
+        account_gender_label = "man" if self.account_gender in ("men", "male") else "woman"
+        target_gender_label = "man" if self.target_gender in ("men", "male") else "woman"
+        search_gender_label = f"I am a {account_gender_label} looking for a {target_gender_label}"
         if self.automation.element_exists(genderSelect):
-            self.automation.select_multiselect_option(genderSelect, search_gender_label, timeout=2000)
-            print(f"[allfeellove_auto] Filtro de género aplicado en búsqueda: {search_gender_label}")
+            genderValue = HtmlElement.css(
+                'div.ui-select[data-test-id="cmp:ui-select search-gender"] span.multiselect__single'
+            )
+            current_gender = self.automation.get_text(genderValue, timeout=3000)
+            if current_gender and search_gender_label.lower() in current_gender.lower():
+                print(f"[allfeellove_auto] Filtro de género ya coincide ({current_gender.strip()}).")
+            else:
+                result = self.automation.select_multiselect_option(
+                    genderSelect,
+                    search_gender_label,
+                    timeout=5000,
+                )
+                print(f"[allfeellove_auto] Filtro de género seleccionado ({search_gender_label}): {result}")
+                if not result:
+                    print("[allfeellove_auto] No se pudo aplicar el filtro de género; se cancela la búsqueda.")
+                    return
 
         self.automation.safe_click(searchPeople)
         print(f'[allfeellove_auto] Filtros terminados...')
@@ -438,42 +496,59 @@ class AllfeelloveAuto:
 
         return None, None, None
 
-    def _ensure_chat_mode(self) -> bool:
-        """Verifica si la vista está en Mail o Chat y cambia a Chat si es necesario."""
-        textarea_selector = 'textarea[data-test-id="cmp:ui-textarea message type-your-message"], textarea#form-textarea, textarea[placeholder*="message" i]'
-        switch_selectors = [
-            'button[data-test-id="cmp:ui-button click:is-chat-visible-true change-to-chat"]',
-            'button[data-test-id*="change-to-chat"]',
-            'button:has-text("Change to chat")',
-            '.x8gxgoBU button',
-            '#mail-title ~ button',
+    def _ensure_message_mode(self) -> bool:
+        """Abre Mail o Chat, según el CTA disponible, y espera el campo de mensaje."""
+        composer_selector = (
+            'textarea[data-test-id="cmp:ui-textarea message type-your-message"], '
+            'textarea#form-textarea, textarea[placeholder*="message" i], textarea'
+        )
+        switch_actions = [
+            (
+                "Mail",
+                [
+                    '[data-test-id*="go-to-mail"]',
+                    '[data-test-id*="mail-now"]',
+                    '[data-test-id*="change-to-mail"]',
+                    'button:has-text("Go to mail")',
+                    'button:has-text("Mail now")',
+                    'button:has-text("Change to mail")',
+                ],
+            ),
+            (
+                "Chat",
+                [
+                    '[data-test-id*="chat-now"]',
+                    'button:has-text("Chat now")',
+                    '[data-test-id="cmp:ui-button click:is-chat-visible-true change-to-chat"]',
+                    '[data-test-id*="change-to-chat"]',
+                    'button:has-text("Change to chat")',
+                ],
+            ),
         ]
 
         for _ in range(3):
-            try:
-                textarea = self.driver.page.locator(textarea_selector).first
-                if textarea.count() > 0 and textarea.is_visible():
-                    print("[allfeellove_auto] Modo Chat ya está activo.")
-                    return True
-            except Exception:
-                pass
-
-            for selector in switch_selectors:
-                try:
-                    button = self.driver.page.locator(selector).first
-                    if button.count() > 0 and button.is_visible():
-                        print("[allfeellove_auto] Detectado modo Mail. Cambiando a Chat...")
-                        button.click(force=True)
-                        self.driver.page.wait_for_timeout(600)
-                        break
-                except Exception:
-                    pass
+            switch_clicked = False
+            for mode, selectors in switch_actions:
+                for selector in selectors:
+                    try:
+                        action = self.driver.page.locator(selector).first
+                        if action.count() > 0 and action.is_visible():
+                            print(f"[allfeellove_auto] Abriendo modo {mode} con '{selector}'...")
+                            action.click(force=True)
+                            switch_clicked = True
+                            self.driver.page.wait_for_timeout(1000)
+                            break
+                    except Exception:
+                        continue
+                if switch_clicked:
+                    break
 
             try:
-                textarea = self.driver.page.locator(textarea_selector).first
-                textarea.wait_for(state="visible", timeout=3000)
-                if textarea.is_visible():
-                    print("[allfeellove_auto] Modo Chat activado exitosamente.")
+                composer = self.driver.page.locator(composer_selector).first
+                composer.wait_for(state="visible", timeout=10000)
+                if composer.is_visible():
+                    detected_mode = mode if switch_clicked else "Mail/Chat existente"
+                    print(f"[allfeellove_auto] Campo de mensaje listo ({detected_mode}).")
                     return True
             except Exception:
                 pass
@@ -482,59 +557,91 @@ class AllfeelloveAuto:
 
         return False
 
-    def _send_sticker_batch(self, sticker_count: int | None = None) -> None:
-        """Abre la interfaz de stickers y envía la cantidad configurada."""
-        target_count = sticker_count if sticker_count is not None else AutomationConfig.STICKER_COUNT
-        interval_ms = AutomationConfig.STICKER_INTERVAL_MS
+    def _get_message_texts(self) -> list[str]:
+        message_locators = self.driver.page.locator(self.INCOMING_MESSAGE_SELECTOR)
+        texts = []
+        for index in range(message_locators.count()):
+            content = message_locators.nth(index).locator(
+                '[data-test-id="file:text-msg message"]'
+            ).inner_text().strip()
+            if content:
+                texts.append(content)
+        return texts
 
-        toggle_selectors = [
-            'button[data-test-id="click:toggle-sticker-box"]',
-            'button[data-test-id*="toggle-sticker"]',
-            'button[data-test-id*="sticker"]',
-            'button:has-text("Stickers")',
-        ]
-        sticker_selector = 'div[data-test-id*="click:on-send-sticker-sticker"], div[data-test-id*="on-send-sticker"], .sticker-item, img[data-test-id*="sticker"]'
-
-        opened = False
-        for selector in toggle_selectors:
+    def _wait_for_incoming_reply(
+        self,
+        previous_messages: list[str],
+        sent_message: str,
+    ) -> bool:
+        """Espera hasta cinco minutos a que aparezca un mensaje entrante nuevo."""
+        started_at = time.monotonic()
+        deadline = time.monotonic() + self.MESSAGE_REPLY_TIMEOUT_SECONDS
+        previous_counts = Counter(previous_messages)
+        sent_text = sent_message.strip()
+        print(
+            "[allfeellove_auto][debug] Inicia espera de respuesta: "
+            f"timeout={self.MESSAGE_REPLY_TIMEOUT_SECONDS}s, "
+            f"selector='{self.INCOMING_MESSAGE_SELECTOR}', "
+            f"mensajes previos={len(previous_messages)}, "
+            f"caracteres del mensaje enviado={len(sent_text)}."
+        )
+        next_status_log = started_at
+        while time.monotonic() < deadline:
             try:
-                toggle_button = self.driver.page.locator(selector).first
-                if toggle_button.count() > 0:
-                    toggle_button.wait_for(state="visible", timeout=5000)
-                    toggle_button.scroll_into_view_if_needed()
-                    toggle_button.click(force=True)
-                    opened = True
-                    self.driver.page.wait_for_timeout(500)
-                    break
-            except Exception:
-                pass
+                current_messages = self._get_message_texts()
+                current_counts = Counter(current_messages)
+                added_messages = current_counts - previous_counts
+                sent_echo_count = min(added_messages[sent_text], 1)
+                if sent_echo_count:
+                    added_messages[sent_text] -= sent_echo_count
+                    if added_messages[sent_text] <= 0:
+                        del added_messages[sent_text]
+            except Exception as exc:
+                print(
+                    "[allfeellove_auto][debug] Falló la lectura de mensajes "
+                    f"con selector='{self.INCOMING_MESSAGE_SELECTOR}': {exc}"
+                )
+                return False
 
-        if not opened:
-            print("[allfeellove_auto] No se encontró el botón para abrir stickers.")
-            return
+            elapsed = time.monotonic() - started_at
+            if added_messages:
+                new_message_lengths = [
+                    len(text)
+                    for text, occurrences in added_messages.items()
+                    for _ in range(occurrences)
+                ]
+                print(
+                    "[allfeellove_auto][debug] Respuesta detectada: "
+                    f"mensajes DOM={len(current_messages)}, "
+                    f"mensajes nuevos candidatos={sum(added_messages.values())}, "
+                    f"longitudes={new_message_lengths}, "
+                    f"eco propio excluido={sent_echo_count}, "
+                    f"espera transcurrida={elapsed:.1f}s."
+                )
+                print("[allfeellove_auto] Respuesta entrante detectada; espera 8s antes de continuar.")
+                self.driver.page.wait_for_timeout(8000)
+                return True
 
-        try:
-            sticker_items = self.driver.page.locator(sticker_selector)
-            self.driver.page.wait_for_timeout(400)
-            total_items = sticker_items.count()
-            if total_items == 0:
-                print("[allfeellove_auto] No hay stickers visibles en la caja.")
-                return
+            remaining = deadline - time.monotonic()
+            if time.monotonic() >= next_status_log:
+                print(
+                    "[allfeellove_auto][debug] Sin respuesta todavía: "
+                    f"mensajes DOM={len(current_messages)}, "
+                    f"mensajes nuevos={sum(added_messages.values())}, "
+                    f"eco propio excluido={sent_echo_count}, "
+                    f"transcurrido={elapsed:.1f}s, restante={max(0, remaining):.1f}s."
+                )
+                next_status_log = time.monotonic() + 10
+            self.driver.page.wait_for_timeout(min(1000, max(1, int(remaining * 1000))))
 
-            for index in range(target_count):
-                item_idx = index % total_items
-                item = sticker_items.nth(item_idx)
-                try:
-                    item.wait_for(state="visible", timeout=3000)
-                    item.scroll_into_view_if_needed()
-                    item.click(force=True)
-                    print(f"[allfeellove_auto] Sticker {index + 1}/{target_count} enviado.")
-                    self.driver.page.wait_for_timeout(interval_ms)
-                except Exception:
-                    continue
-            print(f"[allfeellove_auto] Proceso de stickers completado ({target_count} enviados).")
-        except Exception as exc:
-            print(f"[allfeellove_auto] Error al enviar stickers: {exc}")
+        print(
+            "[allfeellove_auto][debug] Timeout esperando respuesta: "
+            f"timeout={self.MESSAGE_REPLY_TIMEOUT_SECONDS}s, "
+            f"transcurrido={time.monotonic() - started_at:.1f}s, "
+            f"mensajes previos={len(previous_messages)}."
+        )
+        print("[allfeellove_auto] No llegó una respuesta dentro del límite; se detiene la secuencia para este perfil.")
+        return False
 
     def _interact_with_found_profile(self, card_locator) -> None:
         """Interacción completa con el perfil adaptada al género objetivo."""
@@ -558,6 +665,7 @@ class AllfeelloveAuto:
         ]
         textarea_selector = 'textarea[data-test-id="cmp:ui-textarea message type-your-message"], textarea#form-textarea, textarea'
         send_selectors = [
+            'div[data-test-id="file:add-message click:send-message"]',
             'button[data-test-id="cmp:ui-button click:send-message send"]',
             'button[data-test-id*="send-message"]',
             'button:has-text("Send")',
@@ -621,9 +729,9 @@ class AllfeelloveAuto:
             except Exception:
                 pass
 
-        # 4. Verificar modo Mail y cambiar a Chat si es necesario
-        if not self._ensure_chat_mode():
-            print("[allfeellove_auto] El modo Chat no se pudo activar; se cancela el flujo de mensajes.")
+        # 4. Abrir Mail o Chat, según el CTA disponible en el perfil.
+        if not self._ensure_message_mode():
+            print("[allfeellove_auto] No se pudo abrir Mail/Chat o localizar el campo de mensaje; se cancela el flujo.")
             return
 
         # 5. Generación de diálogos adaptados al target_gender ("men" o "women")
@@ -634,7 +742,7 @@ class AllfeelloveAuto:
             else "warm, playful, and confident"
         )
         messages = PeopleTalkGenerator.build_message_set(
-            count=4,
+            count=12,
             name=self.last_found_profile_name,
             age=self.last_found_profile_age,
             personality=personality,
@@ -643,10 +751,24 @@ class AllfeelloveAuto:
         )
         print(f"[allfeellove_auto] Generados {len(messages)} mensajes con tono '{tone}' para objetivo {self.target_gender.upper()}.")
 
-        cooldown_seconds = AutomationConfig.MESSAGE_COOLDOWN_SECONDS
+        #Espera a que la pagina termine de abrir (8 secs)
+        self.driver.page.wait_for_timeout(8000)
+
         for index, message in enumerate(messages, start=1):
+            try:
+                previous_messages = self._get_message_texts()
+                print(
+                    f"[allfeellove_auto][debug] Mensaje {index}/{len(messages)}: "
+                    f"snapshot previo={len(previous_messages)} mensajes, "
+                    f"longitud del texto a enviar={len(message)}."
+                )
+            except Exception as exc:
+                print(f"[allfeellove_auto] No se pudo preparar la detección de respuestas: {exc}")
+                break
+
             sent = False
-            for _ in range(3):
+            send_errors: list[str] = []
+            for attempt in range(1, 4):
                 try:
                     textarea = self.driver.page.locator(textarea_selector).first
                     if textarea.count() > 0:
@@ -654,36 +776,54 @@ class AllfeelloveAuto:
                         textarea.click(force=True)
                         textarea.fill("")
                         textarea.fill(message)
-                        self.driver.page.wait_for_timeout(50)
+                        self.driver.page.wait_for_timeout(300)
 
                         for candidate in send_selectors:
                             send_button = self.driver.page.locator(candidate).first
-                            if send_button.count() > 0 and send_button.is_visible():
-                                send_button.click(force=True)
+                            if send_button.count() == 0:
+                                continue
+                            try:
+                                send_button.wait_for(state="visible", timeout=10000)
+                                is_disabled = send_button.get_attribute("data-isdisabled") == "true"
+                                if is_disabled or not send_button.is_enabled():
+                                    send_errors.append(f"{candidate}: botón deshabilitado")
+                                    continue
+                                send_button.scroll_into_view_if_needed()
+                                send_button.click(force=True, timeout=10000)
                                 sent = True
                                 break
+                            except Exception as exc:
+                                send_errors.append(f"{candidate}: {exc}")
+                                continue
 
                         if sent:
-                            print(f"[allfeellove_auto] Mensaje {index}/{len(messages)} enviado: '{message}'")
+                            print(
+                                f"[allfeellove_auto][debug] Envío confirmado: "
+                                f"mensaje {index}/{len(messages)}, intento={attempt}, "
+                                f"botón='{candidate}', longitud={len(message)}."
+                            )
+                            print(f"[allfeellove_auto] Mensaje {index}/{len(messages)} enviado.")
                             break
                 except Exception as exc:
-                    print(f"[allfeellove_auto] Reintento de mensaje {index}/{len(messages)}: {exc}")
+                    print(
+                        f"[allfeellove_auto][debug] Error enviando mensaje "
+                        f"{index}/{len(messages)}, intento={attempt}: {exc}"
+                    )
                     self.driver.page.wait_for_timeout(200)
 
             if not sent:
-                print(f"[allfeellove_auto] No se pudo enviar el mensaje {index}/{len(messages)}.")
+                print(
+                    f"[allfeellove_auto] No se pudo enviar el mensaje {index}/{len(messages)}. "
+                    f"Errores del botón de envío: {send_errors or ['no se encontró un botón coincidente']}."
+                )
+                print("[allfeellove_auto] Se pausa en este perfil para inspeccionar el botón. Cierra el navegador para continuar.")
+                self.driver.wait_until_closed()
                 break
 
             if index < len(messages):
-                print(f"[allfeellove_auto] Esperando cooldown de {cooldown_seconds}s...")
-                self.driver.page.wait_for_timeout(int(cooldown_seconds * 1000))
-
-        # 6. Envío de stickers
-        self.driver.page.wait_for_timeout(500)
-        try:
-            self._send_sticker_batch()
-        except Exception as exc:
-            print(f"[allfeellove_auto] Error al enviar stickers: {exc}")
+                print("[allfeellove_auto] Esperando una respuesta (máximo 5 minutos)...")
+                if not self._wait_for_incoming_reply(previous_messages, message):
+                    break
 
     def _go_to_next_profile_page(self, current_first_id: str = "") -> bool:
         """Avanza de página rápidamente esperando de forma reactiva a que cambien las tarjetas."""

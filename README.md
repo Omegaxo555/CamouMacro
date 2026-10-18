@@ -56,13 +56,14 @@ Si prefieres ejecutar directamente en Windows sin contenedor:
    - `[x]`: Detener
    - `[Tab]`: Cambiar algoritmo
    - `[h]`: Activar / Desactivar modo Headless
-   - `[l]`: Activar / Desactivar bucle continuo con rotación
+   - `[l]`: Activar / Desactivar reinicio tras éxito o error (con rotación Tor; OFF deja abierto el navegador)
+   - `[a]`: Activar / Desactivar filtro `ALL` (incluye inactivos; OFF conserva `ONLY ACTIVE`)
    - `[+]` / `[-]`: Ajustar velocidad de ejecución
    - `[q]`: Salir
 
 3. **Ejecutar en modo CLI rápido**:
    ```powershell
-   .\go_app\bin\camoumacro-cli.exe -algo form_demo -headless=true -loop=false
+   .\go_app\bin\camoumacro-cli.exe -algo allfeellove_auto -headless=true -loop=false -all-users=true
    ```
 
 ---
