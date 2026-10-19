@@ -56,6 +56,7 @@ type model struct {
 	logs     []string
 	algos    []string
 	algoIdx  int
+	macros   int
 	headless bool
 	loopMode bool
 	allUsers bool
@@ -89,6 +90,7 @@ func initialModel() model {
 		status:   orchestrator.StatusIdle,
 		algos:    []string{"allfeellove_auto", "form_demo"},
 		algoIdx:  0,
+		macros:   cfg.MacroCount,
 		headless: cfg.Headless,
 		loopMode: true,
 		allUsers: cfg.SearchAllUsers,
@@ -148,7 +150,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cfg.Headless = m.headless
 				m.cfg.SearchAllUsers = m.allUsers
 				m.cfg.SpeedFactor = m.speed
-				_ = m.orch.Start(m.loopMode)
+				m.cfg.MacroCount = m.macros
+				if err := m.orch.Start(m.loopMode); err != nil {
+					m.logs = append(m.logs, fmt.Sprintf("[ERROR] %v", err))
+				}
 			}
 
 		case "x":
@@ -167,6 +172,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "a":
 			m.allUsers = !m.allUsers
+
+		case "m":
+			m.macros = m.macros%3 + 1
 
 		case "+", "=":
 			m.speed += 0.1
@@ -224,10 +232,11 @@ func (m model) View() string {
 	}
 	allUsersDisplay := fmt.Sprintf("Filtro [a]: %s", filterMode)
 	speedDisplay := fmt.Sprintf("Velocidad [+/-]: %.1fx", m.speed)
+	macrosDisplay := fmt.Sprintf("Macros [m]: %d (Tor independiente)", m.macros)
 
 	controls := fmt.Sprintf(
-		"%s   |   %s\n%s   |   %s\n%s\n\nAcciones: [s/Enter] Iniciar  •  [x] Detener  •  [c] Limpiar Logs  •  [q] Salir",
-		algoDisplay, headlessDisplay, loopDisplay, speedDisplay, allUsersDisplay,
+		"%s   |   %s\n%s   |   %s\n%s   |   %s\n\nAcciones: [s/Enter] Iniciar  •  [x] Detener  •  [m] Cambiar cantidad de macros  •  [c] Limpiar Logs  •  [q] Salir",
+		algoDisplay, headlessDisplay, loopDisplay, speedDisplay, allUsersDisplay, macrosDisplay,
 	)
 
 	panel := cardStyle.Width(96).Render(controls)
@@ -257,7 +266,7 @@ func boolColor(b bool) string {
 
 func main() {
 	m := initialModel()
-	p := tea.NewProgram(m, tea.WithAltScreen())
+	p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithInputTTY())
 	m.p = p
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Error ejecutando TUI: %v\n", err)

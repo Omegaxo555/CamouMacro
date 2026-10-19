@@ -38,6 +38,88 @@ class PeopleTalkGenerator:
         "One quick thing:",
         "Just curious,",
     ]
+    SHORT_OPENERS = [
+        "Hey, how are you?",
+        "Hi, how's it going?",
+        "Good morning, how are you?",
+        "Hey, how's your day going?",
+        "Hi there, how have you been?",
+        "Hello, how's your day?",
+    ]
+    SHORT_MESSAGES = [
+        "How's your day going?",
+        "What are you up to today?",
+        "How was your weekend?",
+        "What do you like doing for fun?",
+        "Do you have any plans this weekend?",
+        "What kind of music do you like?",
+        "Have you watched anything good lately?",
+        "Are you more into movies or shows?",
+        "What's your favorite kind of food?",
+        "Do you like going out or staying in?",
+        "What's something fun you did recently?",
+        "Are you having a good day?",
+        "What's your favorite way to relax?",
+        "Do you have any pets?",
+        "What do you usually do in your free time?",
+        "Is there somewhere you'd like to travel?",
+        "What's your favorite kind of weather?",
+        "Do you prefer coffee or tea?",
+        "What always puts you in a good mood?",
+        "What are you looking forward to?",
+        "Did anything interesting happen today?",
+        "What's a place you really like around here?",
+        "Are you a morning person or a night owl?",
+        "What's something you've been enjoying lately?",
+        "How's your week going?",
+        "What did you have for breakfast?",
+        "What's your favorite season?",
+        "Do you enjoy cooking?",
+        "What's your go-to comfort food?",
+        "Do you have a favorite coffee shop?",
+        "What do you usually do after work?",
+        "Have you been anywhere fun lately?",
+        "What's your favorite holiday?",
+        "Do you like the beach?",
+        "What's the last song you listened to?",
+        "Do you enjoy live music?",
+        "What's your favorite thing to do outdoors?",
+        "Do you like board games?",
+        "What's your favorite snack?",
+        "Have you read any good books lately?",
+        "Do you enjoy road trips?",
+        "What's your ideal way to spend a day off?",
+        "Do you like rainy days?",
+        "What's a simple thing you enjoy?",
+        "Do you have a favorite restaurant?",
+        "What's the best thing about your week?",
+        "Do you enjoy meeting new people?",
+        "What's your favorite time of day?",
+        "Have you tried any new hobbies lately?",
+        "Do you like taking photos?",
+        "What's a show you can watch again and again?",
+        "Would you rather explore a city or nature?",
+        "What's your favorite thing about where you live?",
+        "Do you enjoy spending time outside?",
+        "What's a small thing you're grateful for today?",
+        "Do you have a favorite childhood memory?",
+        "What's your favorite way to spend Sunday?",
+        "Have you discovered any good music lately?",
+        "Do you like surprises?",
+        "What's something you're good at?",
+        "Do you prefer summer or winter?",
+        "What's your favorite dessert?",
+        "Would you rather stay in or go out tonight?",
+        "Do you like trying new places?",
+        "What's something you'd like to learn?",
+        "Have you had a relaxing day?",
+        "What's your favorite thing to do with friends?",
+        "Do you enjoy watching sports?",
+        "What's a place that feels peaceful to you?",
+        "Would you rather have a quiet evening or a busy one?",
+        "What's one thing that made you smile recently?",
+    ]
+    LONG_MESSAGE_SET_PROBABILITY = 1 / 15
 
     TONES_BY_GENDER = {
         "women": {
@@ -373,10 +455,41 @@ class PeopleTalkGenerator:
         tone: str = "flirty",
         target_gender: str = "women",
     ) -> list[str]:
-        """Genera un hilo natural de mensajes secuenciales adaptados al género del target."""
+        """Genera un hilo casual corto o, con 35% de probabilidad, el hilo largo."""
+        count = max(1, count)
+        if random.random() < cls.LONG_MESSAGE_SET_PROBABILITY:
+            return cls._build_long_message_set(
+                count=count,
+                name=name,
+                age=age,
+                personality=personality,
+                tone=tone,
+                target_gender=target_gender,
+            )
+
+        opener = random.choice(cls.SHORT_OPENERS)
+        follow_ups = random.sample(
+            cls.SHORT_MESSAGES,
+            k=min(count - 1, len(cls.SHORT_MESSAGES)),
+        )
+        messages = [opener, *follow_ups]
+        while len(messages) < count:
+            messages.append(random.choice(cls.SHORT_MESSAGES))
+        return messages
+
+    @classmethod
+    def _build_long_message_set(
+        cls,
+        count: int,
+        name: str | None,
+        age: int | None,
+        personality: str | None,
+        tone: str,
+        target_gender: str,
+    ) -> list[str]:
+        """Construye el estilo largo preexistente, sin alterar sus plantillas."""
         tone_data = cls._get_tone_data(tone=tone, target_gender=target_gender)
 
-        count = max(1, count)
         opener_pool = random.sample(tone_data["openers"], min(len(tone_data["openers"]), count))
         intro_pool = random.sample(tone_data["introductions"], min(len(tone_data["introductions"]), count))
         available_questions = list(dict.fromkeys(tone_data["questions"] + cls.FOLLOW_UP_QUESTIONS))

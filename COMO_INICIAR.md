@@ -256,6 +256,7 @@ Si compilaste los ejecutables con `setup_standalone.bat` o tienes Go instalado:
 - `[h]`: Alternar modo Headless (oculto / visible).
 - `[l]`: Activar o desactivar el reinicio tras éxito/error; OFF deja abierto el navegador.
 - `[a]`: Activar o desactivar `ALL` (incluye inactivos); OFF conserva `ONLY ACTIVE`.
+- `[m]`: Alternar entre 1, 2 y 3 macros simultáneas (cada una usa su propio proceso Tor).
 - `[+]` / `[-]`: Subir o bajar la velocidad de interacción.
 - `[q]` o `[Ctrl+C]`: Salir del programa.
 
@@ -268,6 +269,8 @@ Para entornos sin interfaz gráfica o tareas programadas de Windows / Cron en Li
 ```powershell
 .\go_app\bin\camoumacro-cli.exe -algo allfeellove_auto -headless=false -loop=true -all-users=true
 ```
+
+Para iniciar varias macros desde la misma interfaz Go, selecciona la cantidad en el Dashboard GUI o pulsa `[m]` en la TUI. En CLI se puede indicar `-macros 2` o `-macros 3`. Cada worker reserva un puerto SOCKS distinto, empezando por el puerto base y avanzando de diez en diez (por defecto `9050`, `9060`, `9070`); cada uno inicia y detiene su propio proceso Tor. Si alguno de esos puertos ya está ocupado, ese worker se detiene con un error explícito en vez de conectarse a un Tor compartido.
 
 ---
 
@@ -330,3 +333,4 @@ SEARCH_ALL_USERS=false  # true para incluir inactivos (ALL); false conserva ONLY
 - Puedes editar o agregar nuevos tonos (`flirty`, `casual`, `premium`) tanto para hombres como para mujeres en `TONES_BY_GENDER`.
 - El algoritmo prepara una secuencia de hasta 12 mensajes y solo envía el siguiente después de detectar una respuesta entrante. Si no llega en 5 minutos, detiene la secuencia para ese perfil.
 - Las preguntas de seguimiento están en `FOLLOW_UP_QUESTIONS`; el cierre se agrega únicamente al último mensaje.
+- En Chat, después de enviar cada texto, hay 1/3 de probabilidad de enviar también un sticker aleatorio entre los primeros cinco disponibles. En Mail, la función se omite si no aparece el botón de stickers.

@@ -26,14 +26,15 @@ type MainUI struct {
 	orch    *orchestrator.Orchestrator
 
 	// Widgets UI
-	statusBadge   *widget.Label
-	torPortLabel  *widget.Label
-	algoSelect    *widget.Select
-	headlessCheck *widget.Check
-	loopCheck     *widget.Check
-	allUsersCheck *widget.Check
-	speedSlider   *widget.Slider
-	speedLabel    *widget.Label
+	statusBadge      *widget.Label
+	torPortLabel     *widget.Label
+	algoSelect       *widget.Select
+	macroCountSelect *widget.Select
+	headlessCheck    *widget.Check
+	loopCheck        *widget.Check
+	allUsersCheck    *widget.Check
+	speedSlider      *widget.Slider
+	speedLabel       *widget.Label
 
 	logEntry    *widget.Entry
 	logMu       sync.Mutex
@@ -187,6 +188,13 @@ func (ui *MainUI) buildDashboardTab() fyne.CanvasObject {
 	})
 	ui.algoSelect.SetSelected(ui.cfg.SelectedAlgo)
 
+	ui.macroCountSelect = widget.NewSelect([]string{"1", "2", "3"}, func(selected string) {
+		if count, err := strconv.Atoi(selected); err == nil {
+			ui.cfg.MacroCount = count
+		}
+	})
+	ui.macroCountSelect.SetSelected(strconv.Itoa(ui.cfg.MacroCount))
+
 	// Switches y Opciones
 	ui.headlessCheck = widget.NewCheck("Modo Headless (Ocultar ventana del navegador)", func(checked bool) {
 		ui.cfg.Headless = checked
@@ -235,6 +243,7 @@ func (ui *MainUI) buildDashboardTab() fyne.CanvasObject {
 	formGroup := container.NewVBox(
 		widget.NewLabelWithStyle("Selección de Algoritmo:", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 		ui.algoSelect,
+		widget.NewFormItem("Macros simultáneas (Tor independiente por macro):", ui.macroCountSelect).Widget,
 		ui.allUsersCheck,
 		widget.NewSeparator(),
 		ui.headlessCheck,

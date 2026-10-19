@@ -14,6 +14,7 @@ type AppConfig struct {
 	PythonEngineDir  string
 	RunnerScript     string
 	TorPort          int
+	MacroCount       int
 	Headless         bool
 	SpeedFactor      float64
 	SearchAllUsers   bool
@@ -43,6 +44,13 @@ func LoadDefaultConfig() *AppConfig {
 	if envPort := os.Getenv("TOR_PORT"); envPort != "" {
 		if p, err := strconv.Atoi(envPort); err == nil {
 			torPort = p
+		}
+	}
+
+	macroCount := 1
+	if envCount := os.Getenv("MACRO_COUNT"); envCount != "" {
+		if count, err := strconv.Atoi(envCount); err == nil && count >= 1 && count <= 3 {
+			macroCount = count
 		}
 	}
 
@@ -84,6 +92,7 @@ func LoadDefaultConfig() *AppConfig {
 		PythonEngineDir:  engineDir,
 		RunnerScript:     runnerScript,
 		TorPort:          torPort,
+		MacroCount:       macroCount,
 		Headless:         headless,
 		SpeedFactor:      speed,
 		SearchAllUsers:   searchAllUsers,

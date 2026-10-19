@@ -9,6 +9,8 @@ import traceback
 from collections import Counter
 from pathlib import Path
 
+from playwright.sync_api import Error as PlaywrightError
+
 from config.settings import AutomationConfig
 
 from core.camoufox_handler import CamoufoxHandler
@@ -16,11 +18,23 @@ from modules.browser_automation import BrowserAutomation, HtmlElement
 from modules.InfoGeneration.peopleInfo_generator import PeopleInfoGenerator
 from modules.InfoGeneration.peopleTalk_generator import PeopleTalkGenerator
 
+
+class RegistrationError(RuntimeError):
+    """Indica que una acción requerida del registro no pudo completarse."""
+
+
 class AllfeelloveAuto:
     """Algoritmo Allfeellove con soporte configurable para usuarios femeninos y masculinos."""
 
+    SITE_URL = "https://allfeellove.com"
+    REGISTRATION_MAX_RETRIES = 3
+    REGISTRATION_TIMEOUT_MS = 30000
+    POST_SIGNUP_TIMEOUT_MS = 160000
     INCOMING_MESSAGE_SELECTOR = 'div[data-test-id="file:text-message click:resend-message"]'
     MESSAGE_REPLY_TIMEOUT_SECONDS = 5 * 60
+    STICKER_BUTTON_SELECTOR = '[data-test-id="file:add-message click:handle-stickers-by-button"]'
+    STICKER_ITEM_SELECTOR = 'div[data-test-id^="file:stickers click:on-send-sticker-sticker"]'
+    STICKER_SEND_PROBABILITY = 1 / 3
 
     def __init__(
         self,
@@ -71,29 +85,28 @@ class AllfeelloveAuto:
             print("[allfeellove_auto] No se puede seleccionar la opción: navegador no inicializado.")
             return False
 
-        label_selector = HtmlElement.css(f'label[data-testid="{testid}"]')
-        input_locator = self.driver.page.locator(
-            f'label[data-testid="{testid}"] input[type="checkbox"]'
-        )
-        if not self.automation.wait_for_visible(label_selector, timeout=10000):
-            print(f"[allfeellove_auto] No está visible la opción con data-testid='{testid}'.")
-            return False
-        if input_locator.count() != 1:
-            print(f"[allfeellove_auto] Se esperaba un checkbox para '{testid}', encontrado: {input_locator.count()}.")
-            return False
-
-        if not input_locator.is_checked():
-            clicked = self.automation.safe_click(label_selector)
-            if not input_locator.is_checked():
+        label_locator = self.driver.page.locator(f'label[data-testid="{testid}"]')
+        input_locator = label_locator.locator('input[type="checkbox"]')
+        try:
+            label_locator.wait_for(state="visible", timeout=10000)
+            if input_locator.count() != 1:
                 print(
-                    f"[allfeellove_auto] El click en '{testid}' "
-                    f"{'falló' if not clicked else 'no marcó el checkbox'}; intentando marcar el input directamente."
+                    f"[allfeellove_auto] Se esperaba un checkbox para '{testid}', "
+                    f"encontrado: {input_locator.count()}."
                 )
-                input_locator.check(force=True)
+                return False
+            if not input_locator.is_checked():
+                try:
+                    label_locator.click(timeout=10000)
+                except PlaywrightError:
+                    input_locator.check(timeout=10000)
 
-        selected = input_locator.is_checked()
-        print(f"[allfeellove_auto] Opción '{testid}' seleccionada: {selected}")
-        return selected
+            selected = input_locator.is_checked()
+            print(f"[allfeellove_auto] Opción '{testid}' seleccionada: {selected}")
+            return selected
+        except PlaywrightError as exc:
+            print(f"[allfeellove_auto] No se pudo seleccionar '{testid}': {exc}")
+            return False
 
     def run(self) -> None:
         try:
@@ -111,115 +124,180 @@ class AllfeelloveAuto:
             traceback.print_exc()
             raise
 
+    def _click_registration_control(self, selector: HtmlElement, label: str) -> None:
+        try:
+            locator = self.automation.locator(selector)
+            locator.wait_for(state="visible", timeout=self.REGISTRATION_TIMEOUT_MS)
+            locator.click(timeout=self.REGISTRATION_TIMEOUT_MS)
+        except PlaywrightError as exc:
+            raise RegistrationError(f"No se pudo activar '{label}': {exc}") from exc
+
+    def _fill_registration_field(self, selector: HtmlElement, value: str, label: str) -> None:
+        if not self.automation.human_type(
+            selector,
+            value,
+            timeout=self.REGISTRATION_TIMEOUT_MS,
+        ):
+            raise RegistrationError(f"No se pudo escribir el campo '{label}'.")
+
+        try:
+            actual_value = self.automation.locator(selector).input_value(
+                timeout=self.REGISTRATION_TIMEOUT_MS
+            )
+        except PlaywrightError as exc:
+            raise RegistrationError(f"No se pudo verificar el campo '{label}': {exc}") from exc
+
+        actual = re.sub(r"\s+", " ", actual_value).strip().casefold()
+        expected = re.sub(r"\s+", " ", value).strip().casefold()
+        if label == "fecha de nacimiento":
+            actual = re.sub(r"\D", "", actual)
+            expected = re.sub(r"\D", "", expected)
+        if actual != expected:
+            raise RegistrationError(f"El campo '{label}' no coincide con el valor esperado.")
+
+    def _register_account(self) -> None:
+        if not self.driver.page:
+            raise RegistrationError("El navegador no está inicializado.")
+
+        self.automation = BrowserAutomation(self.driver.page, debug=True)
+        print(f"[allfeellove_auto] Navegando a {self.SITE_URL}")
+        if not self.driver.navigate(self.SITE_URL):
+            raise RegistrationError("No se pudo cargar la página inicial.")
+
+        if self.driver.is_cloudflare_blocked():
+            print("[allfeellove_auto] Bloqueo de Cloudflare; rotando conexión antes del registro.")
+            if not self.driver.rotate_connection(use_tor=True):
+                raise RegistrationError("No se pudo reiniciar el navegador tras el bloqueo de Cloudflare.")
+            self.automation = BrowserAutomation(self.driver.page, debug=True)
+            if not self.driver.navigate(self.SITE_URL):
+                raise RegistrationError("La página sigue bloqueada después de rotar la conexión.")
+
+        try:
+            self.driver.page.wait_for_load_state(
+                "domcontentloaded",
+                timeout=self.REGISTRATION_TIMEOUT_MS,
+            )
+        except PlaywrightError as exc:
+            raise RegistrationError(f"La página inicial no terminó de cargar: {exc}") from exc
+        print(f"[allfeellove_auto] Página cargada. URL actual: {self.driver.page.url}")
+
+        cookies_button = HtmlElement.xpath(
+            '/html/body/div[2]/div/div/div/div/div[2]/div[1]/button[1]'
+        )
+        gender_button = (
+            HtmlElement.css(
+                "label.gender__item.female, label.gender__item[class*='female'], "
+                "label.gender__item[class*='woman'], [data-test-id*='gender-female']"
+            )
+            if self.account_gender in ("women", "female")
+            else HtmlElement.css(
+                "label.gender__item.male, label.gender__item[class*='male'], "
+                "label.gender__item[class*='man'], [data-test-id*='gender-male']"
+            )
+        )
+        lookingfor_button = (
+            HtmlElement.css('label[data-testid="option-man"]')
+            if self.target_gender in ("men", "male")
+            else HtmlElement.css('label[data-testid="option-woman"]')
+        )
+        name_input = HtmlElement.css('input.input.input_name.name-container__input')
+        date_input = HtmlElement.xpath(
+            '/html/body/div[1]/div/div/main/div[1]/div/div[2]/div/div/form/div[3]/div[2]/div[1]/input'
+        )
+        terms_checkbox = HtmlElement.xpath(
+            "/html/body/div[1]/div/div/main/div[1]/div/div[2]/div/div/form/div[4]/div[1]/div[1]/label"
+        )
+        submit_button = HtmlElement.xpath(
+            '/html/body/div[1]/div/div/main/div[1]/div/div[2]/div/div/form/button'
+        )
+        mail_input = HtmlElement.xpath('/html/body/div/div/div/main/div[1]/div/div/div/div/form/div[1]/div[1]/input')
+        password_input = HtmlElement.xpath('/html/body/div/div/div/main/div[1]/div/div/div/div/form/div[2]/div[1]/div/input')
+        signup_button = HtmlElement.xpath('/html/body/div/div/div/main/div[1]/div/div/div/div/form/button')
+
+        if self.automation.wait_for_visible(cookies_button, timeout=5000):
+            print("[allfeellove_auto] Esperando que el botón de cookies sea interactuable...")
+            self._click_registration_control(cookies_button, "aceptar cookies")
+
+        self._require_registration_visible(name_input, "formulario inicial")
+        self._require_registration_visible(gender_button, "género de la cuenta")
+        self._require_registration_visible(lookingfor_button, "preferencia de género")
+        self._require_registration_visible(date_input, "fecha de nacimiento")
+        self._require_registration_visible(terms_checkbox, "términos")
+        self._require_registration_visible(submit_button, "botón del primer paso")
+
+        print(f"[allfeellove_auto] Seleccionando género de cuenta ({self.account_gender}).")
+        self._click_registration_control(gender_button, "género de la cuenta")
+
+        pref_testid = "option-man" if self.target_gender in ("men", "male") else "option-woman"
+        if not self._select_checkbox_option(pref_testid):
+            raise RegistrationError("No se pudo seleccionar la preferencia de género.")
+
+        print(f"[allfeellove_auto] Completando nombre: {self.profile_dict['name']}")
+        self._fill_registration_field(name_input, self.profile_dict["name"], "nombre")
+        print(f"[allfeellove_auto] Completando fecha de nacimiento: {self.profile_dict['birthdate']}")
+        self._fill_registration_field(date_input, self.profile_dict["birthdate"], "fecha de nacimiento")
+
+        print("[allfeellove_auto] Aceptando términos...")
+        terms_selected = self.automation.check_checkbox(terms_checkbox, check=True)
+        print(f"[allfeellove_auto] Resultado términos: {terms_selected}")
+        if not terms_selected:
+            self._click_registration_control(terms_checkbox, "aceptar términos")
+
+        print("[allfeellove_auto] Enviando primer paso de registro...")
+        self._click_registration_control(submit_button, "enviar primer paso")
+        self._require_registration_visible(mail_input, "segundo paso del registro")
+        self._require_registration_visible(password_input, "campo de contraseña")
+        self._require_registration_visible(signup_button, "botón de registro")
+
+        print(f"[allfeellove_auto] Completando email: {self.profile_dict['email']}")
+        self._fill_registration_field(mail_input, self.profile_dict["email"], "email")
+        print("[allfeellove_auto] Completando contraseña...")
+        self._fill_registration_field(password_input, self.profile_dict["password"], "contraseña")
+
+        self.automation.safe_click(HtmlElement.css('div.google-button-wrapper'))
+        print("[allfeellove_auto] Enviando segundo paso de registro...")
+        self._click_registration_control(signup_button, "crear cuenta")
+        onboarding_button = HtmlElement.css(
+            'button[data-test-id="cmp:ui-button click:next Let’s do it!"]'
+        )
+        if not self.automation.wait_for_visible(
+            onboarding_button,
+            timeout=self.POST_SIGNUP_TIMEOUT_MS,
+        ):
+            raise RegistrationError(
+                "El segundo paso no abrió el onboarding; el registro no se confirmó."
+            )
+
+    def _require_registration_visible(self, selector: HtmlElement, label: str) -> None:
+        if not self.automation.wait_for_visible(
+            selector,
+            timeout=self.REGISTRATION_TIMEOUT_MS,
+        ):
+            raise RegistrationError(f"No apareció '{label}' dentro del tiempo límite.")
+
+    def _register_with_retries(self) -> None:
+        for attempt in range(1, self.REGISTRATION_MAX_RETRIES + 2):
+            try:
+                print(
+                    f"[allfeellove_auto] Intento de registro "
+                    f"{attempt}/{self.REGISTRATION_MAX_RETRIES + 1}."
+                )
+                self._register_account()
+                break
+            except RegistrationError as exc:
+                print(f"[allfeellove_auto][registro] Falló intento {attempt}: {exc}")
+                if attempt > self.REGISTRATION_MAX_RETRIES:
+                    raise RegistrationError(
+                        f"No se pudo completar el registro tras {attempt} intentos."
+                    ) from exc
+                print("[allfeellove_auto][registro] Reiniciando desde la página inicial...")
+
     def _run_algorithm(self) -> None:
         if not self.driver.page:
             print("[allfeellove_auto] El navegador no está inicializado.")
             return
 
-        self.automation = BrowserAutomation(self.driver.page, debug=True)
-        print("[allfeellove_auto] Navegando a https://allfeellove.com")
-        if not self.driver.navigate("https://allfeellove.com"):
-            print("[allfeellove_auto] No se pudo cargar la página. Revisa red, DNS, firewall o el sitio.")
-            return
-
-        if self.driver.is_cloudflare_blocked():
-            print("[allfeellove_auto] Detectado bloqueo de Cloudflare. Reiniciando navegador con otra salida de red...")
-            if not self.driver.rotate_connection(use_tor=True):
-                print("[allfeellove_auto] No se pudo rotar la conexión para evitar el bloqueo.")
-                return
-            if not self.driver.navigate("https://allfeellove.com"):
-                print("[allfeellove_auto] La página sigue bloqueada después del reinicio.")
-                return
-
-        self.driver.page.wait_for_load_state("domcontentloaded", timeout=self.driver.timeout)
-        print(f"[allfeellove_auto] Página cargada. URL actual: {self.driver.page.url}")
-
-        cookies_button = HtmlElement.xpath('/html/body/div[2]/div/div/div/div/div[2]/div[1]/button[1]')
-
-        # Adaptación de selectores según el género de la cuenta (femenino o masculino)
-        if self.account_gender in ("women", "female"):
-            gender_button = HtmlElement.css(
-                "label.gender__item.female, label.gender__item[class*='female'], label.gender__item[class*='woman'], [data-test-id*='gender-female']"
-            )
-        else:
-            gender_button = HtmlElement.css(
-                "label.gender__item.male, label.gender__item[class*='male'], label.gender__item[class*='man'], [data-test-id*='gender-male']"
-            )
-
-        # Adaptación de selector de búsqueda según target_gender
-        if self.target_gender in ("men", "male"):
-            lookingfor_button = HtmlElement.css('label[data-testid="option-man"]')
-        else:
-            lookingfor_button = HtmlElement.css('label[data-testid="option-woman"]')
-
-        name_input = HtmlElement.css('input.input.input_name.name-container__input')
-        date_input = HtmlElement.xpath('/html/body/div[1]/div/div/main/div[1]/div/div[2]/div/div/form/div[3]/div[2]/div[1]/input')
-        terms_checkbox = HtmlElement.xpath("/html/body/div[1]/div/div/main/div[1]/div/div[2]/div/div/form/div[4]/div[1]/div[1]/label")
-        submit_button = HtmlElement.xpath('/html/body/div[1]/div/div/main/div[1]/div/div[2]/div/div/form/button')
-
-        mail_input = HtmlElement.xpath('/html/body/div/div/div/main/div[1]/div/div/div/div/form/div[1]/div[1]/input')
-        password_input = HtmlElement.xpath('/html/body/div/div/div/main/div[1]/div/div/div/div/form/div[2]/div[1]/div/input')
-        signup_button = HtmlElement.xpath('/html/body/div/div/div/main/div[1]/div/div/div/div/form/button')
-
-        for label, selector in {
-            "genero": gender_button,
-            "busqueda": lookingfor_button,
-            "nombre": name_input,
-            "fecha": date_input,
-            "terminos": terms_checkbox,
-            "enviar": submit_button,
-        }.items():
-            print(f"[allfeellove_auto] Verificando selector de {label}: {selector}")
-            exists = self.automation.element_exists(selector)
-            print(f"[allfeellove_auto] ¿Existe {label}? {exists}")
-            if not exists:
-                print(f"[allfeellove_auto] No existe el elemento de {label}. Revisa el selector o la carga de la página.")
-                return
-
-        if self.automation.element_exists(cookies_button):
-            print(f"[allfeellove_auto] Intentando click en cookies: {cookies_button}")
-            result = self.automation.safe_click(cookies_button)
-            print(f"[allfeellove_auto] Resultado click cookies: {result}")
-
-        print(f"[allfeellove_auto] Seleccionando género de cuenta ({self.account_gender}): {gender_button}")
-        result = self.automation.safe_click(gender_button)
-        print(f"[allfeellove_auto] Resultado click género: {result}")
-
-        pref_testid = "option-man" if self.target_gender in ("men", "male") else "option-woman"
-        print(f"[allfeellove_auto] Seleccionando género objetivo ({self.target_gender}): {lookingfor_button}")
-        if not self._select_checkbox_option(pref_testid):
-            print("[allfeellove_auto] No se pudo seleccionar la preferencia; se cancela el registro.")
-            return
-
-        print(f"[allfeellove_auto] Completando nombre con '{self.profile_dict['name']}'...")
-        result = self.automation.human_type(name_input, self.profile_dict['name'])
-        print(f"[allfeellove_auto] Resultado nombre: {result}")
-
-        print(f"[allfeellove_auto] Completando fecha de nacimiento ({self.profile_dict['birthdate']})...")
-        result = self.automation.human_type(date_input, self.profile_dict['birthdate'])
-        print(f"[allfeellove_auto] Resultado fecha: {result}")
-
-        print("[allfeellove_auto] Aceptando términos...")
-        result = self.automation.check_checkbox(terms_checkbox, check=True)
-        print(f"[allfeellove_auto] Resultado términos: {result}")
-
-        print("[allfeellove_auto] Enviando primer paso de registro...")
-        result = self.automation.safe_click(submit_button)
-        print(f"[allfeellove_auto] Resultado click enviar: {result}")
-
-        self.driver.page.wait_for_load_state("domcontentloaded", timeout=self.driver.timeout)
-
-        print(f"[allfeellove_auto] Completando email: {self.profile_dict['email']}")
-        result = self.automation.human_type(mail_input, self.profile_dict['email'])
-        print(f"[allfeellove_auto] Resultado input email: {result}")
-
-        print("[allfeellove_auto] Completando contraseña...")
-        result = self.automation.human_type(password_input, self.profile_dict['password'])
-        print(f"[allfeellove_auto] Resultado input password: {result}")
-
-        self.automation.safe_click(HtmlElement.css('div.google-button-wrapper'))
-        result = self.automation.safe_click(signup_button)
-        print(f"[allfeellove_auto] Resultado click signup: {result}")
+        self._register_with_retries()
 
         # -------- Onboarding y Reclamo de Tokens -------- #
         print('[allfeellove_auto] Esperando por inicio de sesión (onboarding)...')
@@ -568,6 +646,42 @@ class AllfeelloveAuto:
                 texts.append(content)
         return texts
 
+    def _send_random_sticker(self) -> bool:
+        """Abre la caja y selecciona aleatoriamente uno de los primeros cinco stickers."""
+        try:
+            sticker_button = self.driver.page.locator(self.STICKER_BUTTON_SELECTOR).first
+            if sticker_button.count() == 0 or not sticker_button.is_visible():
+                print("[allfeellove_auto][sticker] Caja no disponible (posiblemente modo Mail); se omite.")
+                return False
+
+            sticker_button.click(force=True)
+            self.driver.page.wait_for_timeout(500)
+
+            sticker_items = self.driver.page.locator(self.STICKER_ITEM_SELECTOR)
+            visible_items = []
+            for index in range(min(5, sticker_items.count())):
+                item = sticker_items.nth(index)
+                if item.is_visible():
+                    visible_items.append(item)
+
+            if not visible_items:
+                print("[allfeellove_auto][sticker] No hay stickers visibles entre los primeros cinco.")
+                return False
+
+            selected_sticker = random.choice(visible_items)
+            sticker_id = selected_sticker.get_attribute("data-test-id") or "sin-id"
+            selected_sticker.scroll_into_view_if_needed()
+            selected_sticker.click(force=True, timeout=10000)
+            self.driver.page.wait_for_timeout(300)
+            print(
+                f"[allfeellove_auto][sticker] Clic de envío realizado: "
+                f"{sticker_id}; opciones visibles entre los primeros cinco={len(visible_items)}."
+            )
+            return True
+        except Exception as exc:
+            print(f"[allfeellove_auto][sticker] No se pudo enviar el sticker: {exc}")
+            return False
+
     def _wait_for_incoming_reply(
         self,
         previous_messages: list[str],
@@ -819,6 +933,18 @@ class AllfeelloveAuto:
                 print("[allfeellove_auto] Se pausa en este perfil para inspeccionar el botón. Cierra el navegador para continuar.")
                 self.driver.wait_until_closed()
                 break
+
+            if random.random() < self.STICKER_SEND_PROBABILITY:
+                print(
+                    f"[allfeellove_auto][sticker] Probabilidad activada "
+                    f"para mensaje {index}/{len(messages)}."
+                )
+                self._send_random_sticker()
+            else:
+                print(
+                    f"[allfeellove_auto][sticker] No se seleccionó sticker "
+                    f"para mensaje {index}/{len(messages)}."
+                )
 
             if index < len(messages):
                 print("[allfeellove_auto] Esperando una respuesta (máximo 5 minutos)...")

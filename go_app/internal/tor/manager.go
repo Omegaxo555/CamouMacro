@@ -11,8 +11,8 @@ import (
 	"time"
 )
 
-// DefaultPorts lista de puertos Tor a rotar.
-var DefaultPorts = []int{9050, 9150, 9051, 9052}
+// DefaultPorts lista de puertos SOCKS cuyos puertos de control no se superponen.
+var DefaultPorts = []int{9050, 9052, 9054, 9056}
 
 // Manager administra el proceso de Tor en segundo plano y la rotación de conexiones.
 type Manager struct {
@@ -25,10 +25,25 @@ type Manager struct {
 
 // NewManager crea una nueva instancia de Manager.
 func NewManager(logFn func(string)) *Manager {
+	return NewManagerWithPorts(logFn, DefaultPorts)
+}
+
+// NewManagerWithPorts crea un manager limitado a sus propios puertos SOCKS.
+func NewManagerWithPorts(logFn func(string), ports []int) *Manager {
+	if len(ports) == 0 {
+		ports = DefaultPorts
+	}
 	return &Manager{
-		ports: DefaultPorts,
+		ports: append([]int(nil), ports...),
 		logFn: logFn,
 	}
+}
+
+// Ports devuelve una copia de los puertos asignados a este manager.
+func (m *Manager) Ports() []int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return append([]int(nil), m.ports...)
 }
 
 func (m *Manager) log(msg string) {
@@ -142,8 +157,7 @@ func (m *Manager) Start(port int) error {
 	defer m.mu.Unlock()
 
 	if IsTorAvailable(port) {
-		m.log(fmt.Sprintf("Tor ya está corriendo en 127.0.0.1:%d", port))
-		return nil
+		return fmt.Errorf("el puerto Tor SOCKS %d ya está en uso; se rechaza compartir una instancia Tor", port)
 	}
 
 	torPath := FindTorExecutable()

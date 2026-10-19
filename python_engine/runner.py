@@ -58,6 +58,12 @@ def parse_args():
     parser = argparse.ArgumentParser(description="CamouMacro Python Automation Engine")
     parser.add_argument("--algo", type=str, default="allfeellove_auto", help="ID del algoritmo a ejecutar")
     parser.add_argument("--tor-port", type=int, default=9050, help="Puerto del proxy SOCKS5 Tor")
+    parser.add_argument(
+        "--tor-ports",
+        type=lambda value: [int(port) for port in value.split(",")],
+        default=None,
+        help="Puertos SOCKS5 permitidos para esta macro, separados por comas",
+    )
     parser.add_argument("--headless", action="store_true", help="Ejecutar navegador en modo headless")
     parser.add_argument("--speed-factor", type=float, default=1.0, help="Multiplicador de velocidad de delays")
     parser.add_argument("--template", type=str, default="templates/perfil_base.tar.gz", help="Plantilla de perfil")
@@ -98,8 +104,14 @@ def main():
     print(f"[runner] Raíz del proyecto: {PROJECT_ROOT}")
     print(f"[runner] Inicializando Camoufox en Tor proxy socks5://127.0.0.1:{args.tor_port} (Headless: {args.headless})...")
 
+    tor_ports = args.tor_ports or [args.tor_port]
+    if not tor_ports or any(port < 1 or port > 65535 for port in tor_ports):
+        print("[runner] [ERROR] La lista de puertos Tor contiene valores fuera de rango.")
+        sys.exit(2)
+
     driver = CamoufoxHandler(
         tor_proxy=f"socks5://127.0.0.1:{args.tor_port}",
+        tor_ports=tor_ports,
         profile_template=template_str,
         headless=args.headless,
         window_size=(args.width, args.height),

@@ -29,25 +29,24 @@ const (
 
 // Orchestrator gestiona el ciclo de vida continuo de Tor y el worker Python.
 type Orchestrator struct {
-	cfg       *config.AppConfig
-	torMgr    *tor.Manager
-	cmd       *exec.Cmd
-	ctx       context.Context
-	cancel    context.CancelFunc
-	mu        sync.Mutex
-	status    StatusType
-	onLog     func(string)
-	onStatus  func(StatusType)
-	runLoop   bool
-	iteration int
+	cfg      *config.AppConfig
+	torMgrs  map[int]*tor.Manager
+	cmds     map[int]*exec.Cmd
+	ctx      context.Context
+	cancel   context.CancelFunc
+	mu       sync.Mutex
+	status   StatusType
+	onLog    func(string)
+	onStatus func(StatusType)
+	runLoop  bool
 }
 
 // NewOrchestrator crea un nuevo orquestador.
 func NewOrchestrator(cfg *config.AppConfig, onLog func(string), onStatus func(StatusType)) *Orchestrator {
-	torMgr := tor.NewManager(onLog)
 	return &Orchestrator{
 		cfg:      cfg,
-		torMgr:   torMgr,
+		torMgrs:  make(map[int]*tor.Manager),
+		cmds:     make(map[int]*exec.Cmd),
 		status:   StatusIdle,
 		onLog:    onLog,
 		onStatus: onStatus,
@@ -79,16 +78,45 @@ func (o *Orchestrator) log(msg string) {
 // Start inicia la ejecución continua de la automatización en una goroutine.
 func (o *Orchestrator) Start(loopMode bool) error {
 	o.mu.Lock()
-	if o.status == StatusRunning || o.status == StatusStarting {
+	if o.status != StatusIdle && o.status != StatusError {
 		o.mu.Unlock()
 		return fmt.Errorf("el orquestador ya está en ejecución")
 	}
+	macroCount := o.cfg.MacroCount
+	if macroCount == 0 {
+		macroCount = 1
+	}
+	if macroCount < 1 || macroCount > 3 {
+		o.mu.Unlock()
+		return fmt.Errorf("el número de macros debe estar entre 1 y 3")
+	}
+	if o.cfg.TorPort < 1 || o.cfg.TorPort+(macroCount-1)*10 > 65534 {
+		o.mu.Unlock()
+		return fmt.Errorf("puerto Tor base inválido para %d macros", macroCount)
+	}
 	o.runLoop = loopMode
 	o.ctx, o.cancel = context.WithCancel(context.Background())
-	o.iteration = 0
+	o.torMgrs = make(map[int]*tor.Manager, macroCount)
+	o.cmds = make(map[int]*exec.Cmd, macroCount)
+	for workerID := 1; workerID <= macroCount; workerID++ {
+		id := workerID
+		port := o.cfg.TorPort + (workerID-1)*10
+		o.torMgrs[id] = tor.NewManagerWithPorts(func(msg string) {
+			o.log(fmt.Sprintf("[macro %d] %s", id, msg))
+		}, []int{port})
+	}
+	managers := make(map[int]*tor.Manager, len(o.torMgrs))
+	for workerID, manager := range o.torMgrs {
+		managers[workerID] = manager
+	}
+	ctx := o.ctx
+	o.status = StatusStarting
 	o.mu.Unlock()
 
-	go o.lifecycleLoop()
+	if o.onStatus != nil {
+		o.onStatus(StatusStarting)
+	}
+	go o.lifecycleLoop(ctx, managers)
 	return nil
 }
 
@@ -99,93 +127,104 @@ func (o *Orchestrator) Stop() {
 		o.cancel()
 	}
 	o.runLoop = false
+	managers := make([]*tor.Manager, 0, len(o.torMgrs))
+	for _, manager := range o.torMgrs {
+		managers = append(managers, manager)
+	}
+	processes := make([]*exec.Cmd, 0, len(o.cmds))
+	for _, cmd := range o.cmds {
+		processes = append(processes, cmd)
+	}
 	o.mu.Unlock()
 
 	o.setStatus(StatusStopping)
 	o.log("[lifecycle] Deteniendo orquestador...")
 
-	o.killCurrentWorker()
-	o.torMgr.Stop()
+	for _, cmd := range processes {
+		if cmd != nil && cmd.Process != nil {
+			_ = cmd.Process.Kill()
+		}
+	}
+	for _, manager := range managers {
+		manager.Stop()
+	}
 
 	o.setStatus(StatusIdle)
 	o.log("[lifecycle] Detenido completamente.")
 }
 
-func (o *Orchestrator) killCurrentWorker() {
-	o.mu.Lock()
-	defer o.mu.Unlock()
-	if o.cmd != nil && o.cmd.Process != nil {
-		_ = o.cmd.Process.Kill()
-		_ = o.cmd.Wait()
-		o.cmd = nil
+func (o *Orchestrator) lifecycleLoop(ctx context.Context, managers map[int]*tor.Manager) {
+	var workers sync.WaitGroup
+	for workerID, manager := range managers {
+		workers.Add(1)
+		go func(workerID int, manager *tor.Manager) {
+			defer workers.Done()
+			o.runMacro(ctx, workerID, manager)
+		}(workerID, manager)
+	}
+	workers.Wait()
+
+	if ctx.Err() == nil {
+		o.log("[lifecycle] Todos los workers terminaron.")
+		o.setStatus(StatusIdle)
 	}
 }
 
-func (o *Orchestrator) lifecycleLoop() {
-	currentPort := o.cfg.TorPort
-
-	for {
-		o.mu.Lock()
-		ctx := o.ctx
-		o.iteration++
-		iter := o.iteration
-		o.mu.Unlock()
-
-		select {
-		case <-ctx.Done():
+func (o *Orchestrator) runMacro(ctx context.Context, workerID int, manager *tor.Manager) {
+	for cycle := 1; ; cycle++ {
+		if ctx.Err() != nil {
 			return
-		default:
 		}
 
+		currentPort := manager.CurrentPort()
 		o.setStatus(StatusStarting)
-		o.log(fmt.Sprintf("\n========== CICLO #%d | Puerto Tor: %d ==========", iter, currentPort))
+		o.log(fmt.Sprintf("[macro %d] Iniciando ciclo #%d con Tor SOCKS 127.0.0.1:%d", workerID, cycle, currentPort))
 
-		// 1. Iniciar Tor
-		if err := o.torMgr.Start(currentPort); err != nil {
-			o.log(fmt.Sprintf("[ERROR] Fallo al iniciar Tor: %v", err))
-		}
-
-		// 2. Ejecutar Worker Python
-		o.setStatus(StatusRunning)
-		err := o.runPythonWorker(ctx, currentPort)
-
-		select {
-		case <-ctx.Done():
+		if err := manager.Start(currentPort); err != nil {
+			o.log(fmt.Sprintf("[macro %d][ERROR] No se pudo iniciar Tor aislado: %v", workerID, err))
 			return
-		default:
 		}
 
+		o.setStatus(StatusRunning)
+		err := o.runPythonWorker(ctx, workerID, currentPort)
+		manager.Stop()
+
+		if ctx.Err() != nil {
+			return
+		}
 		if err != nil {
-			o.log(fmt.Sprintf("[lifecycle] Worker finalizó con error/reinicio: %v", err))
+			o.log(fmt.Sprintf("[macro %d] Worker finalizó con error/reinicio: %v", workerID, err))
 		} else {
-			o.log("[lifecycle] Worker completó el algoritmo con éxito.")
+			o.log(fmt.Sprintf("[macro %d] Worker completó el algoritmo con éxito.", workerID))
 		}
 
 		o.mu.Lock()
 		shouldContinue := o.runLoop
 		o.mu.Unlock()
-
 		if !shouldContinue {
-			o.log("[lifecycle] Modo ciclo único completado.")
-			o.Stop()
+			o.log(fmt.Sprintf("[macro %d] Modo ciclo único completado.", workerID))
 			return
 		}
 
-		// 3. Rotar puerto y preparar siguiente ciclo
 		o.setStatus(StatusRotating)
-		o.log("[lifecycle] Rotando puerto Tor y limpiando sesión...")
-		o.torMgr.Stop()
-		currentPort = o.torMgr.RotatePort()
-
-		time.Sleep(2 * time.Second)
+		o.log(fmt.Sprintf("[macro %d] Reiniciando su propio proceso Tor para el siguiente ciclo...", workerID))
+		if cyclePort := manager.RotatePort(); cyclePort != currentPort {
+			o.log(fmt.Sprintf("[macro %d] Puerto Tor asignado al siguiente ciclo: %d", workerID, cyclePort))
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(2 * time.Second):
+		}
 	}
 }
 
-func (o *Orchestrator) runPythonWorker(ctx context.Context, torPort int) error {
+func (o *Orchestrator) runPythonWorker(ctx context.Context, workerID int, torPort int) error {
 	args := []string{
 		o.cfg.RunnerScript,
 		"--algo", o.cfg.SelectedAlgo,
 		"--tor-port", strconv.Itoa(torPort),
+		"--tor-ports", strconv.Itoa(torPort),
 		"--speed-factor", fmt.Sprintf("%.2f", o.cfg.SpeedFactor),
 		"--width", strconv.Itoa(o.cfg.WindowWidth),
 		"--height", strconv.Itoa(o.cfg.WindowHeight),
@@ -226,8 +265,13 @@ func (o *Orchestrator) runPythonWorker(ctx context.Context, torPort int) error {
 	}
 
 	o.mu.Lock()
-	o.cmd = cmd
+	o.cmds[workerID] = cmd
 	o.mu.Unlock()
+	defer func() {
+		o.mu.Lock()
+		delete(o.cmds, workerID)
+		o.mu.Unlock()
+	}()
 
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("error al iniciar Python worker: %w", err)
@@ -242,10 +286,6 @@ func (o *Orchestrator) runPythonWorker(ctx context.Context, torPort int) error {
 
 	wg.Wait()
 	err = cmd.Wait()
-
-	o.mu.Lock()
-	o.cmd = nil
-	o.mu.Unlock()
 
 	return err
 }
