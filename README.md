@@ -58,7 +58,8 @@ Si prefieres ejecutar directamente en Windows sin contenedor:
    - `[h]`: Activar / Desactivar modo Headless
    - `[l]`: Activar / Desactivar reinicio tras éxito o error (con rotación Tor; OFF deja abierto el navegador)
    - `[a]`: Activar / Desactivar filtro `ALL` (incluye inactivos; OFF conserva `ONLY ACTIVE`)
-   - `[m]`: Alternar entre 1, 2 y 3 macros concurrentes, cada una con Tor independiente
+   - `[m]`: Alternar entre 1 y 6 macros concurrentes, cada una con Tor independiente.
+     Con 2 o más macros, las ventanas visibles se acomodan en una cuadrícula; se conserva su altura.
    - `[+]` / `[-]`: Ajustar velocidad de ejecución
    - `[q]`: Salir
 

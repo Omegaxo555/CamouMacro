@@ -49,7 +49,7 @@ func LoadDefaultConfig() *AppConfig {
 
 	macroCount := 1
 	if envCount := os.Getenv("MACRO_COUNT"); envCount != "" {
-		if count, err := strconv.Atoi(envCount); err == nil && count >= 1 && count <= 3 {
+		if count, err := strconv.Atoi(envCount); err == nil && count >= 1 && count <= 6 {
 			macroCount = count
 		}
 	}

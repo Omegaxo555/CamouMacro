@@ -16,7 +16,7 @@ func main() {
 
 	algoFlag := flag.String("algo", cfg.SelectedAlgo, "ID del algoritmo a ejecutar")
 	torPortFlag := flag.Int("tor-port", cfg.TorPort, "Puerto inicial de Tor SOCKS5")
-	macroCountFlag := flag.Int("macros", cfg.MacroCount, "Número de macros concurrentes (1-3)")
+	macroCountFlag := flag.Int("macros", cfg.MacroCount, "Número de macros concurrentes (1-6)")
 	headlessFlag := flag.Bool("headless", cfg.Headless, "Ejecutar en modo headless")
 	speedFlag := flag.Float64("speed", cfg.SpeedFactor, "Factor multiplicador de velocidad")
 	loopFlag := flag.Bool("loop", true, "Ejecutar en bucle continuo con rotación")

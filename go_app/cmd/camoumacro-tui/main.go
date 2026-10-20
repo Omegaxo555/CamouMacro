@@ -174,7 +174,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.allUsers = !m.allUsers
 
 		case "m":
-			m.macros = m.macros%3 + 1
+			m.macros = m.macros%6 + 1
 
 		case "+", "=":
 			m.speed += 0.1

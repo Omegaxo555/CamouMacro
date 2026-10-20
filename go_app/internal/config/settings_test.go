@@ -40,8 +40,11 @@ func TestLoadDefaultConfigMacroCount(t *testing.T) {
 		{value: "1", want: 1},
 		{value: "2", want: 2},
 		{value: "3", want: 3},
+		{value: "4", want: 4},
+		{value: "5", want: 5},
+		{value: "6", want: 6},
 		{value: "0", want: 1},
-		{value: "4", want: 1},
+		{value: "7", want: 1},
 		{value: "invalid", want: 1},
 	} {
 		t.Run(test.value, func(t *testing.T) {

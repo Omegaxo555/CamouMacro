@@ -86,9 +86,9 @@ func (o *Orchestrator) Start(loopMode bool) error {
 	if macroCount == 0 {
 		macroCount = 1
 	}
-	if macroCount < 1 || macroCount > 3 {
+	if macroCount < 1 || macroCount > 6 {
 		o.mu.Unlock()
-		return fmt.Errorf("el número de macros debe estar entre 1 y 3")
+		return fmt.Errorf("el número de macros debe estar entre 1 y 6")
 	}
 	if o.cfg.TorPort < 1 || o.cfg.TorPort+(macroCount-1)*10 > 65534 {
 		o.mu.Unlock()
@@ -220,6 +220,10 @@ func (o *Orchestrator) runMacro(ctx context.Context, workerID int, manager *tor.
 }
 
 func (o *Orchestrator) runPythonWorker(ctx context.Context, workerID int, torPort int) error {
+	macroCount := o.cfg.MacroCount
+	if macroCount < 1 {
+		macroCount = 1
+	}
 	args := []string{
 		o.cfg.RunnerScript,
 		"--algo", o.cfg.SelectedAlgo,
@@ -228,6 +232,8 @@ func (o *Orchestrator) runPythonWorker(ctx context.Context, workerID int, torPor
 		"--speed-factor", fmt.Sprintf("%.2f", o.cfg.SpeedFactor),
 		"--width", strconv.Itoa(o.cfg.WindowWidth),
 		"--height", strconv.Itoa(o.cfg.WindowHeight),
+		"--macro-index", strconv.Itoa(workerID - 1),
+		"--macro-count", strconv.Itoa(macroCount),
 	}
 
 	o.mu.Lock()

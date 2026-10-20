@@ -10,6 +10,8 @@ from typing import Optional
 from camoufox.sync_api import Camoufox
 from playwright.sync_api import Error as PlaywrightError, Page, BrowserContext
 
+from core.window_layout import position_current_process_window
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -27,6 +29,7 @@ class CamoufoxHandler:
         timeout: int = 30000,
         window_size: Optional[tuple[int, int]] = (560, 420),
         tor_ports: Optional[list[int]] = None,
+        window_position: Optional[tuple[int, int]] = None,
     ):
 
         resolved_proxy = proxy_server or tor_proxy or "socks5://127.0.0.1:9050"
@@ -36,6 +39,7 @@ class CamoufoxHandler:
         self.headless = headless
         self.timeout = timeout
         self.window_size = window_size or (560, 420)
+        self.window_position = window_position
         self.tor_ports = tor_ports or [9050, 9150, 9051, 9052]
         self._tor_port_index = 0
 
@@ -211,6 +215,21 @@ class CamoufoxHandler:
 
             if self.page is not None:
                 self.page.set_default_timeout(self.timeout)
+
+            if self.window_position is not None:
+                try:
+                    positioned = position_current_process_window(
+                        self.window_position,
+                        self.window_size,
+                    )
+                except OSError as exc:
+                    logging.warning(f"No se pudo colocar la ventana de Camoufox en el mosaico: {exc}")
+                else:
+                    if not positioned:
+                        logging.warning(
+                            "No se encontró una ventana visible de Camoufox para colocarla "
+                            "en el mosaico."
+                        )
 
             logging.info("CamoufoxDriver inicializado exitosamente.")
             logging.info(f"Timeout por defecto del navegador: {self.timeout}ms")

@@ -188,7 +188,7 @@ func (ui *MainUI) buildDashboardTab() fyne.CanvasObject {
 	})
 	ui.algoSelect.SetSelected(ui.cfg.SelectedAlgo)
 
-	ui.macroCountSelect = widget.NewSelect([]string{"1", "2", "3"}, func(selected string) {
+	ui.macroCountSelect = widget.NewSelect([]string{"1", "2", "3", "4", "5", "6"}, func(selected string) {
 		if count, err := strconv.Atoi(selected); err == nil {
 			ui.cfg.MacroCount = count
 		}

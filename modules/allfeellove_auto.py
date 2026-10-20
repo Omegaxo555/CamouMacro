@@ -30,8 +30,13 @@ class AllfeelloveAuto:
     REGISTRATION_MAX_RETRIES = 3
     REGISTRATION_TIMEOUT_MS = 30000
     POST_SIGNUP_TIMEOUT_MS = 160000
+    COOKIE_CONSENT_TIMEOUT_MS = 30000
+    COOKIE_ACCEPT_BUTTON_SELECTOR = '[data-testid="cookie-popup-consent-accept-all"]'
     INCOMING_MESSAGE_SELECTOR = 'div[data-test-id="file:text-message click:resend-message"]'
     MESSAGE_REPLY_TIMEOUT_SECONDS = 5 * 60
+    CREDITS_MODAL_SELECTOR = 'div[data-test-id="modal-notEnoughCredits"]'
+    CREDITS_MODAL_CLOSE_SELECTOR = '[data-test-id="file:not-enough-credits-modal click:close"]'
+    CREDITS_CYCLE_DELAY_MS = 30000
     STICKER_BUTTON_SELECTOR = '[data-test-id="file:add-message click:handle-stickers-by-button"]'
     STICKER_ITEM_SELECTOR = 'div[data-test-id^="file:stickers click:on-send-sticker-sticker"]'
     STICKER_SEND_PROBABILITY = 1 / 3
@@ -181,9 +186,7 @@ class AllfeelloveAuto:
             raise RegistrationError(f"La página inicial no terminó de cargar: {exc}") from exc
         print(f"[allfeellove_auto] Página cargada. URL actual: {self.driver.page.url}")
 
-        cookies_button = HtmlElement.xpath(
-            '/html/body/div[2]/div/div/div/div/div[2]/div[1]/button[1]'
-        )
+        cookies_button = HtmlElement.css(self.COOKIE_ACCEPT_BUTTON_SELECTOR)
         gender_button = (
             HtmlElement.css(
                 "label.gender__item.female, label.gender__item[class*='female'], "
@@ -214,7 +217,10 @@ class AllfeelloveAuto:
         password_input = HtmlElement.xpath('/html/body/div/div/div/main/div[1]/div/div/div/div/form/div[2]/div[1]/div/input')
         signup_button = HtmlElement.xpath('/html/body/div/div/div/main/div[1]/div/div/div/div/form/button')
 
-        if self.automation.wait_for_visible(cookies_button, timeout=5000):
+        if self.automation.wait_for_visible(
+            cookies_button,
+            timeout=self.COOKIE_CONSENT_TIMEOUT_MS,
+        ):
             print("[allfeellove_auto] Esperando que el botón de cookies sea interactuable...")
             self._click_registration_control(cookies_button, "aceptar cookies")
 
@@ -646,38 +652,98 @@ class AllfeelloveAuto:
                 texts.append(content)
         return texts
 
+    def _handle_not_enough_credits(self, timeout_ms: int = 0) -> bool:
+        """Wait for the low-credit modal and finish this worker cycle after 30s."""
+        deadline = time.monotonic() + timeout_ms / 1000
+        modal = self.driver.page.locator(self.CREDITS_MODAL_SELECTOR)
+        while True:
+            try:
+                if modal.count() > 0 and modal.is_visible():
+                    print(
+                        "[allfeellove_auto][chat] Se detectó el modal de créditos "
+                        "insuficientes."
+                    )
+                    close_button = self.driver.page.locator(
+                        self.CREDITS_MODAL_CLOSE_SELECTOR
+                    ).first
+                    if close_button.count() > 0 and close_button.is_visible():
+                        try:
+                            close_button.click(timeout=5000)
+                        except PlaywrightError as exc:
+                            print(
+                                "[allfeellove_auto][chat] No se pudo cerrar el modal; "
+                                f"se cerrará al terminar este ciclo: {exc}"
+                            )
+                    print(
+                        "[allfeellove_auto][chat] Esperando 30 segundos antes de "
+                        "reiniciar el ciclo completo."
+                    )
+                    self.driver.page.wait_for_timeout(self.CREDITS_CYCLE_DELAY_MS)
+                    return True
+            except PlaywrightError as exc:
+                print(
+                    "[allfeellove_auto][chat] Error comprobando el modal de créditos: "
+                    f"{exc}"
+                )
+                return False
+
+            remaining_ms = int((deadline - time.monotonic()) * 1000)
+            if remaining_ms <= 0:
+                return False
+            self.driver.page.wait_for_timeout(min(200, remaining_ms))
+
     def _send_random_sticker(self) -> bool:
-        """Abre la caja y selecciona aleatoriamente uno de los primeros cinco stickers."""
+        """Abre el selector, espera stickers visibles y envía uno al azar."""
         try:
             sticker_button = self.driver.page.locator(self.STICKER_BUTTON_SELECTOR).first
             if sticker_button.count() == 0 or not sticker_button.is_visible():
                 print("[allfeellove_auto][sticker] Caja no disponible (posiblemente modo Mail); se omite.")
                 return False
 
-            sticker_button.click(force=True)
-            self.driver.page.wait_for_timeout(500)
+            sticker_button.click(force=True, timeout=10000)
 
             sticker_items = self.driver.page.locator(self.STICKER_ITEM_SELECTOR)
-            visible_items = []
-            for index in range(min(5, sticker_items.count())):
-                item = sticker_items.nth(index)
-                if item.is_visible():
-                    visible_items.append(item)
+            deadline = time.monotonic() + 8
+            sticker_count = 0
+            while time.monotonic() < deadline:
+                sticker_count = sticker_items.count()
+                visible_items = []
+                for index in range(sticker_count):
+                    item = sticker_items.nth(index)
+                    try:
+                        if item.is_visible():
+                            visible_items.append(item)
+                            if len(visible_items) == 5:
+                                break
+                    except PlaywrightError:
+                        continue
 
-            if not visible_items:
-                print("[allfeellove_auto][sticker] No hay stickers visibles entre los primeros cinco.")
-                return False
+                if visible_items:
+                    random.shuffle(visible_items)
+                    for selected_sticker in visible_items:
+                        try:
+                            sticker_id = selected_sticker.get_attribute("data-test-id") or "sin-id"
+                            selected_sticker.scroll_into_view_if_needed(timeout=5000)
+                            selected_sticker.click(timeout=10000)
+                            self.driver.page.wait_for_timeout(300)
+                            print(
+                                f"[allfeellove_auto][sticker] Sticker enviado: {sticker_id}; "
+                                f"visibles={len(visible_items)}, encontrados={sticker_count}."
+                            )
+                            return True
+                        except PlaywrightError as exc:
+                            print(
+                                f"[allfeellove_auto][sticker] No se pudo seleccionar "
+                                f"{sticker_id}: {exc}"
+                            )
 
-            selected_sticker = random.choice(visible_items)
-            sticker_id = selected_sticker.get_attribute("data-test-id") or "sin-id"
-            selected_sticker.scroll_into_view_if_needed()
-            selected_sticker.click(force=True, timeout=10000)
-            self.driver.page.wait_for_timeout(300)
+                self.driver.page.wait_for_timeout(200)
+
             print(
-                f"[allfeellove_auto][sticker] Clic de envío realizado: "
-                f"{sticker_id}; opciones visibles entre los primeros cinco={len(visible_items)}."
+                f"[allfeellove_auto][sticker] No se encontraron stickers visibles "
+                f"tras esperar 8s; elementos coincidentes={sticker_count}."
             )
-            return True
+            return False
         except Exception as exc:
             print(f"[allfeellove_auto][sticker] No se pudo enviar el sticker: {exc}")
             return False
@@ -701,6 +767,9 @@ class AllfeelloveAuto:
         )
         next_status_log = started_at
         while time.monotonic() < deadline:
+            if self._handle_not_enough_credits():
+                return False
+
             try:
                 current_messages = self._get_message_texts()
                 current_counts = Counter(current_messages)
@@ -933,6 +1002,9 @@ class AllfeelloveAuto:
                 print("[allfeellove_auto] Se pausa en este perfil para inspeccionar el botón. Cierra el navegador para continuar.")
                 self.driver.wait_until_closed()
                 break
+
+            if self._handle_not_enough_credits(timeout_ms=1500):
+                return
 
             if random.random() < self.STICKER_SEND_PROBABILITY:
                 print(

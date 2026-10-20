@@ -25,6 +25,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from core.camoufox_handler import CamoufoxHandler
+from core.window_layout import get_tiled_window_layout
 from modules.allfeellove_auto import run_allfeellove_auto
 from modules.form_automator import FormAutomator
 from modules.InfoGeneration.peopleInfo_generator import PeopleInfoGenerator
@@ -69,6 +70,8 @@ def parse_args():
     parser.add_argument("--template", type=str, default="templates/perfil_base.tar.gz", help="Plantilla de perfil")
     parser.add_argument("--width", type=int, default=560, help="Ancho de ventana")
     parser.add_argument("--height", type=int, default=420, help="Alto de ventana")
+    parser.add_argument("--macro-index", type=int, default=0, help="Índice de esta macro para colocar su ventana")
+    parser.add_argument("--macro-count", type=int, default=1, help="Cantidad total de macros concurrentes")
     parser.add_argument("--target-gender", type=str, default=None, choices=["women", "men"], help="Género del objetivo a buscar")
     parser.add_argument("--account-gender", type=str, default=None, choices=["men", "women", "auto"], help="Género del perfil a crear")
     parser.add_argument("--keep-open", action="store_true", help="Esperar a que el usuario cierre el navegador al terminar")
@@ -87,6 +90,12 @@ def main():
     if args.algo not in ALGORITHMS:
         print(f"[runner] [ERROR] Algoritmo desconocido: '{args.algo}'. Opciones válidas: {list(ALGORITHMS.keys())}")
         sys.exit(1)
+    if args.macro_count < 1 or args.macro_count > 6:
+        print("[runner] [ERROR] La cantidad de macros debe estar entre 1 y 6.")
+        sys.exit(2)
+    if not 0 <= args.macro_index < args.macro_count:
+        print("[runner] [ERROR] El índice de macro debe estar entre 0 y macro-count - 1.")
+        sys.exit(2)
 
     # Inyectar variables de entorno para que los settings.py las tomen
     os.environ["SPEED_FACTOR"] = str(args.speed_factor)
@@ -109,12 +118,29 @@ def main():
         print("[runner] [ERROR] La lista de puertos Tor contiene valores fuera de rango.")
         sys.exit(2)
 
+    window_size = (args.width, args.height)
+    window_position = None
+    if not args.headless and args.macro_count > 1:
+        try:
+            window_position, window_size = get_tiled_window_layout(
+                window_size,
+                args.macro_index,
+                args.macro_count,
+            )
+            print(
+                f"[runner] Ventana de macro {args.macro_index + 1}/{args.macro_count}: "
+                f"{window_size[0]}x{window_size[1]} en {window_position[0]},{window_position[1]}."
+            )
+        except OSError as exc:
+            print(f"[runner] [WARN] No se pudo calcular el mosaico de ventanas: {exc}")
+
     driver = CamoufoxHandler(
         tor_proxy=f"socks5://127.0.0.1:{args.tor_port}",
         tor_ports=tor_ports,
         profile_template=template_str,
         headless=args.headless,
-        window_size=(args.width, args.height),
+        window_size=window_size,
+        window_position=window_position,
     )
 
     try:

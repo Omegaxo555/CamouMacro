@@ -256,7 +256,8 @@ Si compilaste los ejecutables con `setup_standalone.bat` o tienes Go instalado:
 - `[h]`: Alternar modo Headless (oculto / visible).
 - `[l]`: Activar o desactivar el reinicio tras éxito/error; OFF deja abierto el navegador.
 - `[a]`: Activar o desactivar `ALL` (incluye inactivos); OFF conserva `ONLY ACTIVE`.
-- `[m]`: Alternar entre 1, 2 y 3 macros simultáneas (cada una usa su propio proceso Tor).
+- `[m]`: Alternar entre 1 y 6 macros simultáneas (cada una usa su propio proceso Tor).
+  Cuando hay 2 o más macros y el navegador es visible, sus ventanas se acomodan en una cuadrícula y conservan su altura.
 - `[+]` / `[-]`: Subir o bajar la velocidad de interacción.
 - `[q]` o `[Ctrl+C]`: Salir del programa.
 
